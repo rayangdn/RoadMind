@@ -1,7 +1,6 @@
 import os
 import torch
 import torch.nn as nn
-from utils import save_checkpoint
 
 def train_model(model, train_loader, val_loader, optimizer, scheduler, epochs=10, start_epoch=0):
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -38,12 +37,6 @@ def train_model(model, train_loader, val_loader, optimizer, scheduler, epochs=10
         avg_train_loss = train_loss / len(train_loader)
         train_losses.append(avg_train_loss)
         
-        # Save checkpoint
-        checkpoints_dir = "../outputs/checkpoints"
-        os.makedirs(checkpoints_dir, exist_ok=True)
-        if ((epoch + 1) % 5 == 0 or (epoch + 1) == epochs):
-            save_checkpoint(model, optimizer, epoch, avg_train_loss, os.path.join(checkpoints_dir, "checkpoint.pth"))
-                           
         # Validation
         model.eval()
         val_loss = 0.0

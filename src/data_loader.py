@@ -4,7 +4,8 @@ import zipfile
 import pickle
 import numpy as np
 import torch
-from torch.utils.data import Dataset, DataLoader
+from torch.utils.data import Dataset
+
 
 
 class NuplanDataLoader:
@@ -58,51 +59,43 @@ class NuplanDataLoader:
         }
         
 class NuPlanDataset(Dataset):
-    """
-    Dataset class for the nuPlan dataset.
-    
-    Each data point contains:
-    - camera: RGB image simulated at time step 21 (200, 300, 3)
-    - depth: Depth image at time step 21 (200, 300, 1)
-    - driving_command: One of ['forward', 'left', 'right']
-    - sdc_history_feature: [x, y, heading] from past 21 steps (21, 3)
-    - sdc_future_feature: [x, y, heading] for the next 60 steps (60, 3)
-    - semantic_label: Semantic segmentation map (200, 300)
-    """
     def __init__(self, data_path, testing=False, transform=None):
         self.data_path = data_path
         self.testing = testing
         self.transform = transform
         self.command_mapping = {'forward': 0, 'left': 1, 'right': 2}
         self.samples = [os.path.join(data_path, f) for f in os.listdir(data_path) if f.endswith('.pkl')]
+        
+        # Initialize transforms
+        self.camera_transform = CameraTransform(normalize=True)
     
     def __len__(self):
         return len(self.samples)
-
+    
     def __getitem__(self, idx):
-        
         # Load pickle file
         with open(self.samples[idx], 'rb') as f:
             data = pickle.load(f)
         
-        # Extract data
+        # Extract and transform camera data
         camera = data['camera'].astype(np.float32)
-        camera = np.transpose(camera, (2, 0, 1)) 
-        camera_transform = CameraTransform(normalize=True)
-        camera = camera_transform(camera)
+        camera = np.transpose(camera, (2, 0, 1))  # CHW format
+        camera = self.camera_transform(camera)
         
+        # Extract motion history
+        sdc_history_feature = data['sdc_history_feature'].astype(np.float32)
+    
+        # Extract depth data
         depth = data['depth'].astype(np.float32)
-        depth = depth.transpose(2, 0, 1)  
+        depth = depth.transpose(2, 0, 1)
         
+        # Extract driving command data
         driving_command = self.command_mapping[data['driving_command']]
         
-        sdc_history_feature = data['sdc_history_feature'].astype(np.float32)
-
-        if not self.testing:
-            sdc_future_feature = data['sdc_future_feature'].astype(np.float32)
-            semantic_label = data['semantic_label'].astype(np.int64)
-
-        # Create sample dictionary based on testing condition
+        #Extract semantic label
+        semantic_label = data['semantic_label'].astype(np.int64)
+        
+        # Create sample dictionary
         if self.testing:
             sample = {
                 'camera': camera,
@@ -111,6 +104,8 @@ class NuPlanDataset(Dataset):
                 'sdc_history_feature': torch.from_numpy(sdc_history_feature)
             }
         else:
+            sdc_future_feature = data['sdc_future_feature'].astype(np.float32)
+            
             sample = {
                 'camera': camera,
                 'depth': torch.from_numpy(depth),
@@ -123,14 +118,13 @@ class NuPlanDataset(Dataset):
         return sample
     
 class CameraTransform:
-    """
-    Process the camera data
-    """
+    """Process the camera data with improved normalization"""
     def __init__(self, normalize=True):
         self.normalize = normalize
+        self.mean = torch.tensor([0.485, 0.456, 0.406]).view(3, 1, 1)
+        self.std = torch.tensor([0.229, 0.224, 0.225]).view(3, 1, 1)
     
     def __call__(self, image):
-        
         if isinstance(image, np.ndarray):
             image = torch.from_numpy(image)
         
@@ -138,30 +132,9 @@ class CameraTransform:
         if image.max() > 1.0:
             image = image / 255.0
         
+        # Apply ImageNet normalization if specified
+        if self.normalize:
+            image = (image - self.mean) / self.std
+            
         return image
-    
-    
-
-def create_data_loaders(loader, batch_size=32, num_workers=4):
-    """
-    Create data loaders for train, validation, and test sets.
-    """
-    data_paths = loader.get_data_paths()
-    
-    # Create datasets
-    train_dataset = NuPlanDataset(data_paths['train'])
-    val_dataset = NuPlanDataset(data_paths['val'])
-    test_dataset = NuPlanDataset(data_paths['test'], testing=True)
-    
-    # Create data loaders
-    train_loader = DataLoader(train_dataset, batch_size=batch_size, shuffle=True, 
-                              num_workers=num_workers, pin_memory=True)
-    
-    val_loader = DataLoader(val_dataset, batch_size=batch_size, shuffle=False, 
-                            num_workers=num_workers, pin_memory=True)
-    
-    test_loader = DataLoader(test_dataset, batch_size=batch_size, shuffle=False, 
-                             num_workers=num_workers, pin_memory=True)
-    
-    return train_loader, val_loader, test_loader
     
