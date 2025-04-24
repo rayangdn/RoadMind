@@ -1,9 +1,12 @@
+
+import torchvision.models as models
+
+
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-import torchvision.models as models
-import math as math
-
+import math
+    
 class ImageEncoder(nn.Module):
     def __init__(self, output_features=1600):
         super(ImageEncoder, self).__init__()
@@ -76,7 +79,7 @@ class RoadMind(nn.Module):
         # Command embedding
         self.command_embedding = nn.Embedding(3, 8)
         
-        # Motion history processing
+        # Motion history processing TO MODIFY
         self.lstm = nn.LSTM(input_size=3, hidden_size=32, num_layers=1, batch_first=True)
         
         # Fusion and prediction -

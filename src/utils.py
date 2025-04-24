@@ -24,5 +24,5 @@ def plot_results(train_losses, val_losses, val_ade, val_fde):
     axs[1].grid(True)
 
     plt.tight_layout()
-    plt.savefig('../outputs/training_metrics.png')
+    plt.savefig('../model/training_metrics.png')
     plt.close()

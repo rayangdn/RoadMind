@@ -64,7 +64,11 @@ class NuPlanDataset(Dataset):
         self.testing = testing
         self.transform = transform
         self.command_mapping = {'forward': 0, 'left': 1, 'right': 2}
-        self.samples = [os.path.join(data_path, f) for f in os.listdir(data_path) if f.endswith('.pkl')]
+        if testing:
+            self.samples = [os.path.join(data_path, fn) for fn in sorted([f for f in os.listdir(data_path) if f.endswith(".pkl")], 
+                                                                         key=lambda fn: int(os.path.splitext(fn)[0]))]
+        else:
+            self.samples = [os.path.join(data_path, f) for f in os.listdir(data_path) if f.endswith('.pkl')]
         
         # Initialize transforms
         self.camera_transform = CameraTransform(normalize=True)
