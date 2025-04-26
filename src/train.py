@@ -2,7 +2,7 @@ import os
 import torch
 import torch.nn as nn
 
-def train_model(model, train_loader, val_loader, optimizer, scheduler, epochs=10, start_epoch=0):
+def train_model(model, train_loader, val_loader, optimizer, scheduler, epochs=50, start_epoch=0):
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     model = model.to(device)
     

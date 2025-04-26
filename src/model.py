@@ -1,14 +1,11 @@
-
 import torchvision.models as models
-
-
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
 import math
     
 class ImageEncoder(nn.Module):
-    def __init__(self, output_features=1600):
+    def __init__(self, output_features=1600, dropout=0.3):
         super(ImageEncoder, self).__init__()
         
         # Load a pretrained ResNet18 model
@@ -20,6 +17,9 @@ class ImageEncoder(nn.Module):
         # Add batch normalization
         self.batch_norm = nn.BatchNorm2d(512)  # ResNet18's final conv outputs 512 channels
         
+        # Dropout
+        self.dropout = nn.Dropout2d(dropout)
+
         # Spatial attention mechanism
         self.spatial_attention = SpatialAttention()
         
@@ -40,6 +40,9 @@ class ImageEncoder(nn.Module):
         # Apply batch normalization
         x = self.batch_norm(x)
         
+        # Dropout
+        x = self.dropout(x)
+
         # Apply spatial attention
         x = self.spatial_attention(x)
         
@@ -68,10 +71,10 @@ class SpatialAttention(nn.Module):
         return x * attention.expand_as(x)
 
 class RoadMind(nn.Module):
-    def __init__(self):
+    def __init__(self, dropout=0.3):
         super(RoadMind, self).__init__()
         # Image processing
-        self.image_encoder = ImageEncoder(output_features=64*5*5)  # Same size as original
+        self.image_encoder = ImageEncoder(output_features=64*5*5, dropout=dropout)  # Same size as original
         
         # Calculate flattened size - keeping the same as original
         self.flatten_size = 64 * 5 * 5
@@ -80,14 +83,17 @@ class RoadMind(nn.Module):
         self.command_embedding = nn.Embedding(3, 8)
         
         # Motion history processing TO MODIFY
-        self.lstm = nn.LSTM(input_size=3, hidden_size=32, num_layers=1, batch_first=True)
+        self.lstm = nn.LSTM(input_size=3, hidden_size=64, num_layers=3, batch_first=True,
+                            dropout=dropout, layer_norm=True)
         
         # Fusion and prediction -
         self.fusion = nn.Sequential(
-            nn.Linear(self.flatten_size + 8 + 32, 256),
+            nn.Linear(self.flatten_size + 8 + 64, 256),
             nn.ReLU(),
+            nn.Dropout(dropout),
             nn.Linear(256, 128),
             nn.ReLU(),
+            nn.Dropout(dropout),
             nn.Linear(128, 60 * 3)  # Predict 60 timesteps, each with x, y, heading
         )
     
@@ -101,15 +107,15 @@ class RoadMind(nn.Module):
         x_cmd = x_cmd.squeeze(1)
         
         # Process motion history (batch_size, 21, 3) 
-        _, (x_mot, _) = self.lstm(motion_history)
-        x_mot = x_mot.squeeze(0)
+        _, (h_n, _) = self.lstm(motion_history)
+        x_mot = h_n[-1]
         
         # Concatenate features
         combined = torch.cat([x_img, x_cmd, x_mot], dim=-1)
         
         # Generate trajectory
         trajectory = self.fusion(combined)
-        trajectory = trajectory.reshape(-1, 60, 3)  # Reshape to (batch_size, 60, 3)
+        trajectory = trajectory.view(-1, 60, 3)  # Reshape to (batch_size, 60, 3)
         
         return trajectory
 
