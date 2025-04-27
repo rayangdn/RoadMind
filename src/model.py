@@ -5,7 +5,7 @@ import torch.nn.functional as F
 import math
     
 class ImageEncoder(nn.Module):
-    def __init__(self, output_features=1600, dropout=0.3):
+    def __init__(self, output_features=1600, dropout=0.2):
         super(ImageEncoder, self).__init__()
         
         # Load a pretrained ResNet18 model
@@ -71,7 +71,7 @@ class SpatialAttention(nn.Module):
         return x * attention.expand_as(x)
 
 class RoadMind(nn.Module):
-    def __init__(self, dropout=0.3):
+    def __init__(self, dropout=0.2):
         super(RoadMind, self).__init__()
         # Image processing
         self.image_encoder = ImageEncoder(output_features=64*5*5, dropout=dropout)  # Same size as original
@@ -82,11 +82,11 @@ class RoadMind(nn.Module):
         # Command embedding
         self.command_embedding = nn.Embedding(3, 8)
         
-        # Motion history processing TO MODIFY
-        self.lstm = nn.LSTM(input_size=3, hidden_size=64, num_layers=3, batch_first=True,
-                            dropout=dropout, layer_norm=True)
+        # Motion history processing - USING GRU INSTEAD OF LSTM
+        self.gru = nn.GRU(input_size=3, hidden_size=64, num_layers=3, batch_first=True,
+                          dropout=dropout)
         
-        # Fusion and prediction -
+        # Fusion and prediction
         self.fusion = nn.Sequential(
             nn.Linear(self.flatten_size + 8 + 64, 256),
             nn.ReLU(),
@@ -106,16 +106,16 @@ class RoadMind(nn.Module):
         x_cmd = self.command_embedding(command)
         x_cmd = x_cmd.squeeze(1)
         
-        # Process motion history (batch_size, 21, 3) 
-        _, (h_n, _) = self.lstm(motion_history)
-        x_mot = h_n[-1]
+        # Process motion history (batch_size, 21, 3) using GRU
+        _, x_mot = self.gru(motion_history)  # GRU returns (output, hidden)
+        x_mot = x_mot[-1]  # Take the hidden state from the last layer
         
         # Concatenate features
         combined = torch.cat([x_img, x_cmd, x_mot], dim=-1)
         
         # Generate trajectory
         trajectory = self.fusion(combined)
-        trajectory = trajectory.view(-1, 60, 3)  # Reshape to (batch_size, 60, 3)
+        trajectory = trajectory.reshape(-1, 60, 3)  # Reshape to (batch_size, 60, 3)
         
         return trajectory
 
