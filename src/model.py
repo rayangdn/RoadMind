@@ -6,6 +6,98 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 import math
+import timm
+
+# class RoadMind(nn.Module):
+#     def __init__(self, dropout_rate=0.1):
+#         super(RoadMind, self).__init__()
+        
+#         # Vision transformer backbone (DeiT-Tiny)
+#         self.vision_backbone = timm.create_model('deit_tiny_patch16_224', pretrained=True)
+#         self.vision_backbone.head = nn.Identity()  # Remove classification head
+        
+#         # DeiT-Tiny outputs 192-dim features
+#         self.deit_feature_dim = 192
+        
+#         # Projection layer for resized features with dropout
+#         self.vision_projection = nn.Linear(self.deit_feature_dim, 256)
+#         self.dropout_vision = nn.Dropout(dropout_rate)
+#         self.vision_output = nn.Linear(256, 256)
+#         self.flatten_size = 256
+        
+#         # Command embedding with dropout
+#         self.command_embedding = nn.Embedding(3, 8)
+#         self.dropout_cmd = nn.Dropout(dropout_rate)
+        
+#         # Motion history processing with dropout
+#         self.lstm = nn.LSTM(input_size=3, hidden_size=32, num_layers=1, batch_first=True)
+#         self.dropout_motion = nn.Dropout(dropout_rate)
+        
+#         # Fusion and prediction with dropout between layers
+#         self.fusion = nn.Sequential(
+#             nn.Linear(self.flatten_size + 8 + 32, 256),
+#             nn.ReLU(),
+#             nn.Dropout(dropout_rate),  # Dropout after first fusion layer
+#             nn.Linear(256, 128),
+#             nn.ReLU(),
+#             nn.Dropout(dropout_rate),  # Dropout after second fusion layer
+#             nn.Linear(128, 60 * 3)  # Predict 60 timesteps, each with x, y, heading
+#         )
+        
+#         self.init_weights()
+        
+#     def init_weights(self):
+#         # Initialize only the parts we added, leave pretrained weights as they are
+#         for m in [self.vision_projection, self.vision_output, self.fusion]:
+#             if isinstance(m, nn.Linear):
+#                 nn.init.kaiming_uniform_(m.weight, a=math.sqrt(5))
+#                 if m.bias is not None:
+#                     fan_in, _ = nn.init._calculate_fan_in_and_fan_out(m.weight)
+#                     bound = 1 / math.sqrt(fan_in)
+#                     nn.init.uniform_(m.bias, -bound, bound)
+                    
+#         # Initialize LSTM
+#         for name, param in self.lstm.named_parameters():
+#             if 'weight_ih' in name:
+#                 nn.init.xavier_uniform_(param.data)
+#             elif 'weight_hh' in name:
+#                 nn.init.orthogonal_(param.data)
+#             elif 'bias' in name:
+#                 nn.init.constant_(param.data, 0)
+#                 # Set forget gate bias to 1
+#                 param.data[self.lstm.hidden_size:2*self.lstm.hidden_size].fill_(1)
+    
+#     def forward(self, image, command, motion_history):
+#         # Process image with DeiT-Tiny
+#         # DeiT expects [B, 3, 224, 224], so we need to resize
+#         batch_size = image.shape[0]
+#         image_resized = F.interpolate(image, size=(224, 224), mode='bilinear', align_corners=False)
+        
+#         # Extract features with DeiT
+#         x_img = self.vision_backbone(image_resized)  # [B, 192]
+        
+#         # Apply projection with dropout
+#         x_img = F.relu(self.vision_projection(x_img))
+#         x_img = self.dropout_vision(x_img)
+#         x_img = self.vision_output(x_img)
+        
+#         # Process command with dropout
+#         x_cmd = self.command_embedding(command)
+#         x_cmd = self.dropout_cmd(x_cmd)
+        
+#         # Process motion history with dropout
+#         _, (x_mot, _) = self.lstm(motion_history)
+#         x_mot = x_mot.squeeze(0)
+#         x_mot = self.dropout_motion(x_mot)
+        
+#         # Concatenate features
+#         combined = torch.cat([x_img, x_cmd, x_mot], dim=-1)
+        
+#         # Generate trajectory (dropout is included in the Sequential module)
+#         trajectory = self.fusion(combined)
+#         trajectory = trajectory.reshape(-1, 60, 3)  # Reshape to (batch_size, 60, 3)
+        
+#         return trajectory
     
 class ImageEncoder(nn.Module):
     def __init__(self, output_features=1600):
@@ -79,7 +171,7 @@ class RoadMind(nn.Module):
         # Command embedding
         self.command_embedding = nn.Embedding(3, 8)
         
-        # Motion history processing TO MODIFY
+        # Motion history processing
         self.lstm = nn.LSTM(input_size=3, hidden_size=32, num_layers=1, batch_first=True)
         
         # Fusion and prediction -

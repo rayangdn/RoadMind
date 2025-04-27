@@ -90,20 +90,20 @@ class NuPlanDataset(Dataset):
         sdc_history_feature = data['sdc_history_feature'].astype(np.float32)
     
         # Extract depth data
-        depth = data['depth'].astype(np.float32)
-        depth = depth.transpose(2, 0, 1)
+        # depth = data['depth'].astype(np.float32)
+        # depth = depth.transpose(2, 0, 1)
         
         # Extract driving command data
         driving_command = self.command_mapping[data['driving_command']]
         
         #Extract semantic label
-        semantic_label = data['semantic_label'].astype(np.int64)
+        # semantic_label = data['semantic_label'].astype(np.int64)
         
         # Create sample dictionary
         if self.testing:
             sample = {
                 'camera': camera,
-                'depth': torch.from_numpy(depth),
+                # 'depth': torch.from_numpy(depth),
                 'driving_command': torch.tensor(driving_command, dtype=torch.long),
                 'sdc_history_feature': torch.from_numpy(sdc_history_feature)
             }
@@ -112,11 +112,11 @@ class NuPlanDataset(Dataset):
             
             sample = {
                 'camera': camera,
-                'depth': torch.from_numpy(depth),
+                # 'depth': torch.from_numpy(depth),
                 'driving_command': torch.tensor(driving_command, dtype=torch.long),
                 'sdc_history_feature': torch.from_numpy(sdc_history_feature),
                 'sdc_future_feature': torch.from_numpy(sdc_future_feature),
-                'semantic_label': torch.from_numpy(semantic_label)
+                # 'semantic_label': torch.from_numpy(semantic_label)
             }
 
         return sample
