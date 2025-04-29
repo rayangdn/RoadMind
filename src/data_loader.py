@@ -20,9 +20,6 @@ class NuplanDataLoader:
             'test': "https://drive.google.com/uc?id=1G9xGE7s-Ikvvc2-LZTUyuzhWAlNdLTLV"
         }
         
-        # Create data directory if it doesn't exist
-        os.makedirs(data_dir, exist_ok=True)
-        
         # Download data if requested and not already present
         if download:
             self.download_dataset()
@@ -94,7 +91,7 @@ class NuPlanDataset(Dataset):
         # depth = depth.transpose(2, 0, 1)
         
         # Extract driving command data
-        driving_command = self.command_mapping[data['driving_command']]
+        # driving_command = self.command_mapping[data['driving_command']]
         
         #Extract semantic label
         # semantic_label = data['semantic_label'].astype(np.int64)
@@ -104,7 +101,7 @@ class NuPlanDataset(Dataset):
             sample = {
                 'camera': camera,
                 # 'depth': torch.from_numpy(depth),
-                'driving_command': torch.tensor(driving_command, dtype=torch.long),
+                # 'driving_command': torch.tensor(driving_command, dtype=torch.long),
                 'sdc_history_feature': torch.from_numpy(sdc_history_feature)
             }
         else:
@@ -113,7 +110,7 @@ class NuPlanDataset(Dataset):
             sample = {
                 'camera': camera,
                 # 'depth': torch.from_numpy(depth),
-                'driving_command': torch.tensor(driving_command, dtype=torch.long),
+                # 'driving_command': torch.tensor(driving_command, dtype=torch.long),
                 'sdc_history_feature': torch.from_numpy(sdc_history_feature),
                 'sdc_future_feature': torch.from_numpy(sdc_future_feature),
                 # 'semantic_label': torch.from_numpy(semantic_label)

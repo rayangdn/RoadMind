@@ -1,300 +1,205 @@
-
-import torchvision.models as models
-
-
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-import math
-import timm
 
-# class RoadMind(nn.Module):
-#     def __init__(self, dropout_rate=0.1):
-#         super(RoadMind, self).__init__()
-        
-#         # Vision transformer backbone (DeiT-Tiny)
-#         self.vision_backbone = timm.create_model('deit_tiny_patch16_224', pretrained=True)
-#         self.vision_backbone.head = nn.Identity()  # Remove classification head
-        
-#         # DeiT-Tiny outputs 192-dim features
-#         self.deit_feature_dim = 192
-        
-#         # Projection layer for resized features with dropout
-#         self.vision_projection = nn.Linear(self.deit_feature_dim, 256)
-#         self.dropout_vision = nn.Dropout(dropout_rate)
-#         self.vision_output = nn.Linear(256, 256)
-#         self.flatten_size = 256
-        
-#         # Command embedding with dropout
-#         self.command_embedding = nn.Embedding(3, 8)
-#         self.dropout_cmd = nn.Dropout(dropout_rate)
-        
-#         # Motion history processing with dropout
-#         self.lstm = nn.LSTM(input_size=3, hidden_size=32, num_layers=1, batch_first=True)
-#         self.dropout_motion = nn.Dropout(dropout_rate)
-        
-#         # Fusion and prediction with dropout between layers
-#         self.fusion = nn.Sequential(
-#             nn.Linear(self.flatten_size + 8 + 32, 256),
-#             nn.ReLU(),
-#             nn.Dropout(dropout_rate),  # Dropout after first fusion layer
-#             nn.Linear(256, 128),
-#             nn.ReLU(),
-#             nn.Dropout(dropout_rate),  # Dropout after second fusion layer
-#             nn.Linear(128, 60 * 3)  # Predict 60 timesteps, each with x, y, heading
-#         )
-        
-#         self.init_weights()
-        
-#     def init_weights(self):
-#         # Initialize only the parts we added, leave pretrained weights as they are
-#         for m in [self.vision_projection, self.vision_output, self.fusion]:
-#             if isinstance(m, nn.Linear):
-#                 nn.init.kaiming_uniform_(m.weight, a=math.sqrt(5))
-#                 if m.bias is not None:
-#                     fan_in, _ = nn.init._calculate_fan_in_and_fan_out(m.weight)
-#                     bound = 1 / math.sqrt(fan_in)
-#                     nn.init.uniform_(m.bias, -bound, bound)
-                    
-#         # Initialize LSTM
-#         for name, param in self.lstm.named_parameters():
-#             if 'weight_ih' in name:
-#                 nn.init.xavier_uniform_(param.data)
-#             elif 'weight_hh' in name:
-#                 nn.init.orthogonal_(param.data)
-#             elif 'bias' in name:
-#                 nn.init.constant_(param.data, 0)
-#                 # Set forget gate bias to 1
-#                 param.data[self.lstm.hidden_size:2*self.lstm.hidden_size].fill_(1)
-    
-#     def forward(self, image, command, motion_history):
-#         # Process image with DeiT-Tiny
-#         # DeiT expects [B, 3, 224, 224], so we need to resize
-#         batch_size = image.shape[0]
-#         image_resized = F.interpolate(image, size=(224, 224), mode='bilinear', align_corners=False)
-        
-#         # Extract features with DeiT
-#         x_img = self.vision_backbone(image_resized)  # [B, 192]
-        
-#         # Apply projection with dropout
-#         x_img = F.relu(self.vision_projection(x_img))
-#         x_img = self.dropout_vision(x_img)
-#         x_img = self.vision_output(x_img)
-        
-#         # Process command with dropout
-#         x_cmd = self.command_embedding(command)
-#         x_cmd = self.dropout_cmd(x_cmd)
-        
-#         # Process motion history with dropout
-#         _, (x_mot, _) = self.lstm(motion_history)
-#         x_mot = x_mot.squeeze(0)
-#         x_mot = self.dropout_motion(x_mot)
-        
-#         # Concatenate features
-#         combined = torch.cat([x_img, x_cmd, x_mot], dim=-1)
-        
-#         # Generate trajectory (dropout is included in the Sequential module)
-#         trajectory = self.fusion(combined)
-#         trajectory = trajectory.reshape(-1, 60, 3)  # Reshape to (batch_size, 60, 3)
-        
-#         return trajectory
-    
-class ImageEncoder(nn.Module):
-    def __init__(self, output_features=1600):
-        super(ImageEncoder, self).__init__()
-        
-        # Load a pretrained ResNet18 model
-        resnet = models.resnet18(weights=models.ResNet18_Weights.DEFAULT)
-        
-        # Use the first few layers of ResNet (everything except avg pool and fc)
-        self.backbone = nn.Sequential(*list(resnet.children())[:-2])
-        
-        # Add batch normalization
-        self.batch_norm = nn.BatchNorm2d(512)  # ResNet18's final conv outputs 512 channels
-        
-        # Spatial attention mechanism
-        self.spatial_attention = SpatialAttention()
-        
-        # Adaptive pooling to match the original model's pooled dimensions
-        self.pool = nn.AdaptiveAvgPool2d((5, 5))
-        
-        # Calculate flattened output size: 512 channels * 5 * 5 = 12,800
-        # But we'll project this down to match the original model's flattened size
-        self.projection = nn.Conv2d(512, 64, kernel_size=1)  # Project to 64 channels
-        
-        # The output_features will be 64 * 5 * 5 = 1600 (same as original model)
-        self.output_dim = output_features
-    
-    def forward(self, x):
-        # Extract features using ResNet backbone
-        x = self.backbone(x)
-        
-        # Apply batch normalization
-        x = self.batch_norm(x)
-        
-        # Apply spatial attention
-        x = self.spatial_attention(x)
-        
-        # Project to fewer channels
-        x = self.projection(x)
-        
-        # Pool and flatten
-        x = self.pool(x)
-        x = x.reshape(-1, self.output_dim)
-        
-        return x
 
+### DO NOT MODIFY THIS MODEL ###
 class SpatialAttention(nn.Module):
-    def __init__(self):
+    """
+    Spatial attention module that helps the model focus on relevant parts of the image
+    """
+    def __init__(self, in_channels):
         super(SpatialAttention, self).__init__()
-        # Create attention mechanism
-        self.conv = nn.Conv2d(512, 1, kernel_size=1)
-        self.sigmoid = nn.Sigmoid()
-    
-    def forward(self, x):
-        # Generate attention map
-        attention = self.conv(x)
-        attention = self.sigmoid(attention)
+        self.conv1 = nn.Conv2d(in_channels, in_channels // 8, kernel_size=1)
+        self.conv2 = nn.Conv2d(in_channels // 8, 1, kernel_size=1)
         
-        # Apply attention (element-wise multiplication)
-        return x * attention.expand_as(x)
+    def forward(self, x):
+        # First convolution to reduce channels
+        attn = self.conv1(x)
+        attn = F.relu(attn)
+        
+        # Second convolution to generate attention map
+        attn = self.conv2(attn)
+        
+        # Apply sigmoid to get attention weights between 0 and 1
+        attn = torch.sigmoid(attn)
+        
+        # Apply attention weights to input feature map
+        return x * attn.expand_as(x)
+
+class TemporalAttention(nn.Module):
+    """
+    Temporal attention module that helps the model focus on relevant timesteps
+    """
+    def __init__(self, hidden_size):
+        super(TemporalAttention, self).__init__()
+        self.attn = nn.Linear(hidden_size, 1)
+        
+    def forward(self, gru_outputs):
+        # gru_outputs shape: [batch_size, seq_len, hidden_size]
+        
+        # Calculate attention scores
+        attn_scores = self.attn(gru_outputs)  # [batch_size, seq_len, 1]
+        attn_scores = attn_scores.squeeze(-1)  # [batch_size, seq_len]
+        
+        # Apply softmax to get attention weights
+        attn_weights = F.softmax(attn_scores, dim=1).unsqueeze(1)  # [batch_size, 1, seq_len]
+        
+        # Apply attention weights to get context vector
+        context = torch.bmm(attn_weights, gru_outputs)  # [batch_size, 1, hidden_size]
+        context = context.squeeze(1)  # [batch_size, hidden_size]
+        
+        return context
+
+class CrossAttention(nn.Module):
+    """
+    Cross-attention module that helps relate visual features to motion features
+    """
+    def __init__(self, query_dim, key_dim, value_dim, attn_dim=64):
+        super(CrossAttention, self).__init__()
+        self.query_proj = nn.Linear(query_dim, attn_dim)
+        self.key_proj = nn.Linear(key_dim, attn_dim)
+        self.value_proj = nn.Linear(value_dim, value_dim)  # Usually we project values to same dim
+        self.scale = torch.sqrt(torch.tensor(attn_dim, dtype=torch.float32))
+        
+    def forward(self, query, key, value):
+        # Project query, key, value
+        query_proj = self.query_proj(query)  # [batch_size, query_dim] -> [batch_size, attn_dim]
+        key_proj = self.key_proj(key)        # [batch_size, key_dim] -> [batch_size, attn_dim]
+        value_proj = self.value_proj(value)  # [batch_size, value_dim] -> [batch_size, value_dim]
+        
+        # Calculate attention scores
+        attn_scores = torch.matmul(query_proj.unsqueeze(1), key_proj.unsqueeze(2)) / self.scale
+        attn_weights = F.softmax(attn_scores, dim=2)
+        
+        # Apply attention weights to get context vector
+        context = attn_weights * value_proj.unsqueeze(1)
+        
+        return context.squeeze(1)
 
 class RoadMind(nn.Module):
-    def __init__(self):
+    def __init__(self, dropout_rate=0.3):
         super(RoadMind, self).__init__()
-        # Image processing
-        self.image_encoder = ImageEncoder(output_features=64*5*5)  # Same size as original
         
-        # Calculate flattened size - keeping the same as original
-        self.flatten_size = 64 * 5 * 5
+        # Increased channel capacity in convolutional layers
+        self.conv1 = nn.Conv2d(3, 32, kernel_size=5, stride=2)
+        self.bn1 = nn.BatchNorm2d(32)
+        self.dropout1 = nn.Dropout2d(dropout_rate)
         
-        # Command embedding
-        self.command_embedding = nn.Embedding(3, 8)
+        self.conv2 = nn.Conv2d(32, 64, kernel_size=5, stride=2)
+        self.bn2 = nn.BatchNorm2d(64)
+        self.dropout2 = nn.Dropout2d(dropout_rate)
         
-        # Motion history processing
-        self.lstm = nn.LSTM(input_size=3, hidden_size=32, num_layers=1, batch_first=True)
+        self.conv3 = nn.Conv2d(64, 128, kernel_size=5, stride=2)
+        self.bn3 = nn.BatchNorm2d(128)
+        self.dropout3 = nn.Dropout2d(dropout_rate)
         
-        # Fusion and prediction -
+        self.conv4 = nn.Conv2d(128, 128, kernel_size=3, stride=1, padding=1)
+        self.bn4 = nn.BatchNorm2d(128)
+        self.dropout4 = nn.Dropout2d(dropout_rate)
+        
+        # Spatial attention after last conv layer
+        self.spatial_attention = SpatialAttention(128)
+        
+        self.pool = nn.AdaptiveAvgPool2d((5, 5))
+        
+        # Calculate flattened size
+        self.flatten_size = 128 * 5 * 5
+        
+        # Using GRU instead of LSTM for more efficiency with smaller datasets
+        self.gru = nn.GRU(
+            input_size=3, 
+            hidden_size=64,
+            num_layers=2,
+            batch_first=True, 
+            dropout=dropout_rate if 2 > 1 else 0
+        )
+        
+        # Temporal attention for GRU outputs
+        self.temporal_attention = TemporalAttention(64)
+        
+        self.dropout_gru = nn.Dropout(dropout_rate)
+        
+        # Cross-attention between visual and motion features
+        self.cross_attention = CrossAttention(
+            query_dim=64,    # GRU hidden size
+            key_dim=self.flatten_size,  # CNN feature size
+            value_dim=self.flatten_size  # CNN feature size
+        )
+        
+        # Fusion and prediction with increased capacity
         self.fusion = nn.Sequential(
-            nn.Linear(self.flatten_size + 8 + 32, 256),
+            nn.Linear(self.flatten_size + 64, 512),
+            nn.BatchNorm1d(512),
             nn.ReLU(),
+            nn.Dropout(dropout_rate),
+            
+            nn.Linear(512, 256),
+            nn.BatchNorm1d(256),
+            nn.ReLU(),
+            nn.Dropout(dropout_rate/2),
+            
             nn.Linear(256, 128),
+            nn.BatchNorm1d(128),
             nn.ReLU(),
+            nn.Dropout(dropout_rate/4),
+            
             nn.Linear(128, 60 * 3)  # Predict 60 timesteps, each with x, y, heading
         )
-    
-    def forward(self, image, command, motion_history):
-        # Process image (batch_size, 3, 200, 300) using the new encoder
-        x_img = self.image_encoder(image)
         
-        # Process command (batch_size,) 
-        # Command should be 0, 1, or 2 (forward, left, right)
-        x_cmd = self.command_embedding(command)
-        x_cmd = x_cmd.squeeze(1)
+        # Weight initialization
+        self._initialize_weights()
+           
+    def forward(self, image, motion_history):
+        # Process image (batch_size, 3, 200, 300)
+        x_img = F.relu(self.bn1(self.conv1(image)))
+        x_img = self.dropout1(x_img)
         
-        # Process motion history (batch_size, 21, 3) 
-        _, (x_mot, _) = self.lstm(motion_history)
-        x_mot = x_mot.squeeze(0)
+        x_img = F.relu(self.bn2(self.conv2(x_img)))
+        x_img = self.dropout2(x_img)
         
-        # Concatenate features
-        combined = torch.cat([x_img, x_cmd, x_mot], dim=-1)
+        x_img = F.relu(self.bn3(self.conv3(x_img)))
+        x_img = self.dropout3(x_img)
+        
+        x_img = F.relu(self.bn4(self.conv4(x_img)))
+        x_img = self.dropout4(x_img)
+        
+        # Apply spatial attention
+        x_img = self.spatial_attention(x_img)
+        
+        x_img = self.pool(x_img)
+        x_img_flat = x_img.reshape(-1, self.flatten_size)
+        
+        # Process motion history (batch_size, 21, 3) with GRU
+        gru_outputs, hidden = self.gru(motion_history)
+        
+        # Apply temporal attention to GRU outputs
+        x_mot = self.temporal_attention(gru_outputs)
+        x_mot = self.dropout_gru(x_mot)
+        
+        # Apply cross-attention between motion and visual features
+        # Using motion as query and visual as key/value
+        attended_visual = self.cross_attention(x_mot, x_img_flat, x_img_flat)
+        
+        # Concatenate features - using the attended visual features
+        combined = torch.cat([attended_visual, x_mot], dim=-1)
         
         # Generate trajectory
         trajectory = self.fusion(combined)
         trajectory = trajectory.reshape(-1, 60, 3)  # Reshape to (batch_size, 60, 3)
         
         return trajectory
-
-### BASELINE MODEL DO NOT MODIFY GOT ADE = 2.3
-# class RoadMind(nn.Module):
-#     def __init__(self):
-#         super(RoadMind, self).__init__()
-        
-#         # Image processing
-#         self.conv1 = nn.Conv2d(3, 16, kernel_size=5, stride=2)
-#         self.conv2 = nn.Conv2d(16, 32, kernel_size=5, stride=2)
-#         self.conv3 = nn.Conv2d(32, 64, kernel_size=5, stride=2)
-#         self.pool = nn.AdaptiveAvgPool2d((5, 5))
-        
-#         # Calculate flattened size
-#         self.flatten_size = 64 * 5 * 5
-        
-#         # Command embedding
-#         self.command_embedding = nn.Embedding(3, 8)
-        
-#         # Motion history processing
-#         self.lstm = nn.LSTM(input_size=3, hidden_size=32, num_layers=1, batch_first=True)
-        
-#         # Fusion and prediction
-#         self.fusion = nn.Sequential(
-#             nn.Linear(self.flatten_size + 8 + 32, 256),
-#             nn.ReLU(),
-#             nn.Linear(256, 128),
-#             nn.ReLU(),
-#             nn.Linear(128, 60 * 3)  # Predict 60 timesteps, each with x, y, heading
-#         )
-        
-#         #self.init_weights()
-        
-#     def init_weights(self):
-#         for m in self.modules():
-#             if isinstance(m, nn.Conv2d):
-#                 nn.init.kaiming_normal_(m.weight, mode='fan_out', nonlinearity='relu')
-#                 if m.bias is not None:
-#                     nn.init.constant_(m.bias, 0)
-                    
-#             elif isinstance(m, nn.Linear):
-#                 nn.init.kaiming_uniform_(m.weight, a=math.sqrt(5))
-#                 if m.bias is not None:
-#                     # Calculate proper gain for bias initialization
-#                     fan_in, _ = nn.init._calculate_fan_in_and_fan_out(m.weight)
-#                     bound = 1 / math.sqrt(fan_in)
-#                     nn.init.uniform_(m.bias, -bound, bound)
-                    
-#             elif isinstance(m, nn.LSTM):
-#                 # Special initialization for LSTM parameters
-#                 for name, param in m.named_parameters():
-#                     if 'weight_ih' in name:
-#                         # Input-to-hidden weights
-#                         nn.init.xavier_uniform_(param.data)
-#                     elif 'weight_hh' in name:
-#                         # Hidden-to-hidden (recurrent) weights - orthogonal initialization helps with vanishing gradients
-#                         nn.init.orthogonal_(param.data)
-#                     elif 'bias' in name:
-#                         # Bias parameters
-#                         nn.init.constant_(param.data, 0)
-#                         # Forget gate bias initialization to 1 (helps remember longer-term dependencies)
-#                         param.data[m.hidden_size:2*m.hidden_size].fill_(1)
-                        
-#             elif isinstance(m, nn.BatchNorm2d):
-#                 # Default initialization for batch normalization
-#                 nn.init.constant_(m.weight, 1)
-#                 nn.init.constant_(m.bias, 0)
-        
-#     def forward(self, image, command, motion_history):
-#         # Process image (batch_size, 3, 200, 300)
-#         x_img = F.relu(self.conv1(image))
-#         x_img = F.relu(self.conv2(x_img))
-#         x_img = F.relu(self.conv3(x_img))
-#         x_img = self.pool(x_img)
-#         x_img = x_img.reshape(-1, self.flatten_size)
-        
-#         # Process command (batch_size,)
-#         # Command should be 0, 1, or 2 (forward, left, right)
-#         x_cmd = self.command_embedding(command)
-#         x_cmd = x_cmd.squeeze(1)
-        
-#         # Process motion history (batch_size, 21, 3)
-#         _, (x_mot, _) = self.lstm(motion_history)
-#         x_mot = x_mot.squeeze(0)
-        
-#         # Concatenate features
-#         combined = torch.cat([x_img, x_cmd, x_mot], dim=-1)
-        
-#         # Generate trajectory
-#         trajectory = self.fusion(combined)
-#         trajectory = trajectory.reshape(-1, 60, 3)  # Reshape to (batch_size, 60, 3)
-        
-#         return trajectory
-###########################################################
-
+    
+    def _initialize_weights(self):
+        """Initialize model weights for better training stability"""
+        for m in self.modules():
+            if isinstance(m, nn.Conv2d):
+                nn.init.kaiming_normal_(m.weight, mode='fan_out', nonlinearity='relu')
+                if m.bias is not None:
+                    nn.init.constant_(m.bias, 0)
+            elif isinstance(m, nn.BatchNorm2d):
+                nn.init.constant_(m.weight, 1)
+                nn.init.constant_(m.bias, 0)
+            elif isinstance(m, nn.Linear):
+                nn.init.kaiming_normal_(m.weight, mode='fan_out', nonlinearity='relu')
+                nn.init.constant_(m.bias, 0)

@@ -175,3 +175,9 @@ cython_debug/
 
 # Data folders
 **/data/
+
+# Model folder
+**/model/
+
+# Output folders
+**/outputs/

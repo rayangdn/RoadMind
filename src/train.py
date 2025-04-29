@@ -2,30 +2,80 @@ import os
 import torch
 import torch.nn as nn
 
-def train_model(model, train_loader, val_loader, optimizer, scheduler, epochs=10, start_epoch=0):
-    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-    model = model.to(device)
+from utils import save_checkpoint, load_checkpoint
+
+class WeightedMSELoss(nn.Module):
+    def __init__(self, decay_factor=20.0):
+        super(WeightedMSELoss, self).__init__()
+        self.decay_factor = decay_factor
+        
+    def forward(self, pred, target):
+        """
+        Apply exponentially decaying weights to prioritize near-future predictions
+        """
+        batch_size, seq_len, feature_dim = pred.shape
+        
+        # Create weights that decay exponentially with time
+        time_weights = torch.exp(-torch.arange(seq_len, device=pred.device) / self.decay_factor)
+        # Shape to [1, seq_len, 1] for broadcasting
+        time_weights = time_weights.view(1, -1, 1).expand_as(pred)
+        
+        # MSE with time weighting
+        mse = time_weights * (pred - target) ** 2
+        return mse.mean()
+
+
+class HeadingLoss(nn.Module):
+    def __init__(self, heading_weight=0.2):
+        super(HeadingLoss, self).__init__()
+        self.heading_weight = heading_weight
+        self.weighted_mse = WeightedMSELoss()
+        
+    def forward(self, pred, target):
+        """
+        Separates position and heading losses with different weights
+        """
+        # Position loss (x, y)
+        pos_loss = self.weighted_mse(pred[:, :, :2], target[:, :, :2])
+        
+        # Heading loss
+        heading_loss = self.weighted_mse(pred[:, :, 2:], target[:, :, 2:])
+        
+        # Combined loss
+        return pos_loss + self.heading_weight * heading_loss
     
+def train_model(model, train_loader, val_loader, optimizer, scheduler, epochs=50, patience=30, model_dir='../model', output_dir='../output/checkpoints', device='cuda'):
+    
+    start_epoch = 0
+    saved_epoch, _ = load_checkpoint(model, optimizer, checkpoint_path=os.path.join(output_dir, 'checkpoint.pth'))
+    if saved_epoch > 0:
+        start_epoch = saved_epoch + 1
+        print(f"Resuming training from epoch {start_epoch}")
+
     criterion = nn.MSELoss()
+    #criterion = HeadingLoss()
     train_losses = []
     val_losses = []
     val_ade = []
     val_fde = []
     
+    best_val_loss = float('inf')
+    counter = 0
+    
     for epoch in range(start_epoch, epochs):
+        
         # Training 
         model.train()
         train_loss = 0.0
         
         for batch_idx, batch in enumerate(train_loader):
             camera = batch['camera'].to(device)
-            driving_command = batch['driving_command'].to(device)
             sdc_history = batch['sdc_history_feature'].to(device)
             sdc_future = batch['sdc_future_feature'].to(device)
             optimizer.zero_grad()
             
             # Forward pass
-            outputs = model(camera, driving_command, sdc_history)
+            outputs = model(camera, sdc_history)
             loss = criterion(outputs, sdc_future)
             
             # Backward pass and optimize
@@ -46,11 +96,10 @@ def train_model(model, train_loader, val_loader, optimizer, scheduler, epochs=10
         with torch.no_grad():
             for batch in val_loader:
                 camera = batch['camera'].to(device)
-                driving_command = batch['driving_command'].to(device)
                 sdc_history = batch['sdc_history_feature'].to(device)
                 sdc_future = batch['sdc_future_feature'].to(device)
                 
-                outputs = model(camera, driving_command, sdc_history)
+                outputs = model(camera, sdc_history)
                 loss = criterion(outputs, sdc_future)
                 val_loss += loss.item()
                 
@@ -67,8 +116,29 @@ def train_model(model, train_loader, val_loader, optimizer, scheduler, epochs=10
         val_fde.append(avg_fde.detach().cpu().numpy())
         
         scheduler.step(avg_val_loss)
-        print("Learning rate:", scheduler.get_last_lr())
+        
+        print(f'Epoch {epoch+1}/{epochs} , Train Loss: {avg_train_loss:.4f}, Val Loss: {avg_val_loss:.4f}, ADE: {avg_ade:.4f}, FDE: {avg_fde:.4f}, Learning rate: {scheduler.get_last_lr()}')
          
-        print(f'Epoch {epoch+1}/{epochs} , Train Loss: {avg_train_loss:.4f}, Val Loss: {avg_val_loss:.4f}, ADE: {avg_ade:.4f}, FDE: {avg_fde:.4f}')
+        save_checkpoint(model, optimizer, epoch, avg_train_loss, 
+                        checkpoint_path=os.path.join(output_dir, 'checkpoint.pth'),
+                        store_checkpoint_for_every_epoch=False)
+                
+         # Save the best model
+        if avg_val_loss < best_val_loss:
+            best_val_loss = avg_val_loss
+            counter = 0
+            
+            # Save only the model state dictionary
+            torch.save(model.state_dict(), os.path.join(model_dir, 'best_model.pth'))
+            print(f"Best Model saved at epoch {epoch+1}/{epochs} with validation loss: {avg_val_loss:.4f}")
+            
+        else:
+            counter += 1
+            print(f"Early stopping counter: {counter}/{patience}")
+            
+        # Check early stopping condition
+        if counter >= patience:
+            print(f"Early stopping triggered after {epoch+1} epochs")
+            break
     
     return train_losses, val_losses, val_ade, val_fde
