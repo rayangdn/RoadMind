@@ -18,7 +18,7 @@ def main():
     num_epochs = 200
     learning_rate = 1e-3
     patience = 20
-    dropout = 0.3
+    dropout = 0.5
     
     # Set device
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -53,9 +53,10 @@ def main():
     model = RoadMind(dropout_rate=dropout)
     model.to(device)
     print(f"Number of parameters: {sum(p.numel() for p in model.parameters())}")
-    
+    print(f"Number of trainable parameters: {sum(p.numel() for p in model.parameters() if p.requires_grad)}")
+
     # Define optimizer and scheduler
-    optimizer = optim.AdamW(model.parameters(), lr=learning_rate, weight_decay=1e-4)
+    optimizer = optim.AdamW(model.parameters(), lr=learning_rate, weight_decay=3e-4)
     scheduler = optim.lr_scheduler.ReduceLROnPlateau(optimizer, 'min', patience=10, factor=0.5, min_lr=1e-6)
     
     # Train model

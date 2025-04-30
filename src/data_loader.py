@@ -6,8 +6,6 @@ import numpy as np
 import torch
 from torch.utils.data import Dataset
 
-
-
 class NuplanDataLoader:
     """
     Class to handle downloading, extracting, and loading the nuPlan dataset.
