@@ -15,9 +15,9 @@ def main():
     
     # Set hyperparameters
     batch_size = 32
-    num_epochs = 200
-    learning_rate = 1e-3
-    patience = 20
+    num_epochs = 50
+    learning_rate = 1e-4
+    patience = 200
     dropout = 0.3
     
     # Set device

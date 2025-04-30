@@ -106,7 +106,7 @@ class RoadMind(nn.Module):
         # Calculate flattened size
         self.flatten_size = 128 * 5 * 5
         
-        # Using GRU instead of LSTM for more efficiency with smaller datasets
+        # Using GRU
         self.gru = nn.GRU(
             input_size=3, 
             hidden_size=64,
@@ -146,6 +146,16 @@ class RoadMind(nn.Module):
             
             nn.Linear(128, 60 * 3)  # Predict 60 timesteps, each with x, y, heading
         )
+
+        # Transformer encoder layer for comined features
+        self.transformer_layer = nn.TransformerEncoderLayer(
+            d_model=self.flatten_size + 64,
+            nhead=8
+        )
+        self.transformer_encoder = nn.TransformerEncoder(
+            self.transformer_layer,
+            num_layers=1
+        )
         
         # Weight initialization
         self._initialize_weights()
@@ -184,6 +194,12 @@ class RoadMind(nn.Module):
         # Concatenate features - using the attended visual features
         combined = torch.cat([attended_visual, x_mot], dim=-1)
         
+        # For transformer
+        attended_visual = self.cross_attention(x_mot, x_img_flat, x_img_flat)
+        combined = torch.cat([attended_visual, x_mot], dim=-1)
+
+        combined = self.transformer_encoder(combined.unsqueeze(1)).squeeze(1)
+
         # Generate trajectory
         trajectory = self.fusion(combined)
         trajectory = trajectory.reshape(-1, 60, 3)  # Reshape to (batch_size, 60, 3)
