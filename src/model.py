@@ -30,14 +30,21 @@ class RoadMind(nn.Module):
         # Feature dimension after pooling
         self.visual_feature_dim = 512
         
-        # GRU for processing motion history
-        self.motion_gru = nn.GRU(
-            input_size=3,  # x, y, heading
+        # Using GRU
+        self.gru = nn.GRU(
+            input_size=3, 
             hidden_size=64,
             num_layers=2,
-            batch_first=True,
+            batch_first=True, 
             dropout=dropout_rate if 2 > 1 else 0
         )
+        
+        # self.motion_gru = nn.GRU(
+        #     input_size=3,  # x, y, heading
+        #     hidden_size=64,
+        #     num_layers=2,
+        #     batch_first=True,
+        #     dropout=dropout_rate if 2 > 1 else 0)
         
         # Fusion layer to combine visual and motion features
         self.fusion = nn.Sequential(
@@ -47,6 +54,16 @@ class RoadMind(nn.Module):
             nn.Linear(256, 128),
             nn.ReLU(),
             nn.Dropout(dropout_rate)
+        )
+
+        # Transformer encoder layer for comined features
+        self.transformer_layer = nn.TransformerEncoderLayer(
+            d_model=self.flatten_size + 64,
+            nhead=8
+        )
+        self.transformer_encoder = nn.TransformerEncoder(
+            self.transformer_layer,
+            num_layers=1
         )
         
         # Trajectory decoder (predicts all future timesteps at once)
@@ -460,6 +477,18 @@ class RoadMind(nn.Module):
 #         # Using motion as query and visual as key/value
 #         attended_visual = self.cross_attention(x_mot, x_img_flat, x_img_flat)
         
+        # Concatenate features - using the attended visual features
+        combined = torch.cat([attended_visual, x_mot], dim=-1)
+        
+        # For transformer
+        attended_visual = self.cross_attention(x_mot, x_img_flat, x_img_flat)
+        combined = torch.cat([attended_visual, x_mot], dim=-1)
+
+        combined = self.transformer_encoder(combined.unsqueeze(1)).squeeze(1)
+
+        # Generate trajectory
+        trajectory = self.fusion(combined)
+        trajectory = trajectory.reshape(-1, 60, 3)  # Reshape to (batch_size, 60, 3)
 #         # Concatenate features - using the attended visual features
 #         combined = torch.cat([attended_visual, x_mot], dim=-1)
         
