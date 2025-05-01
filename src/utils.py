@@ -1,6 +1,7 @@
 import torch
 import os
 import matplotlib.pyplot as plt
+import matplotlib.cm as cm
 import random
 import numpy as np
 
@@ -83,13 +84,12 @@ def unormalize_image(normalized_image, mean=[0.485, 0.456, 0.406], std=[0.229, 0
     
     return unnormalized
 
-def plot_examples(model, val_loader, device, output_dir):
-    """Plot example predictions from the model in a single figure."""
-    val_batch_zero = next(iter(val_loader))
+def plot_examples(model, data_loader, device, output_dir, num_samples=4):
+    data_batch_zero = next(iter(data_loader))
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
-    camera = val_batch_zero['camera'].to(device)
-    history = val_batch_zero['sdc_history_feature'].to(device)
-    future = val_batch_zero['sdc_future_feature'].to(device)
+    camera = data_batch_zero['camera'].to(device)
+    history = data_batch_zero['sdc_history_feature'].to(device)
+    future = data_batch_zero['sdc_future_feature'].to(device)
     
     model.eval()
     with torch.no_grad():
@@ -100,7 +100,7 @@ def plot_examples(model, val_loader, device, output_dir):
     future = future.cpu().numpy()
     pred_future = pred_future.cpu().numpy()
     
-    k = 4  # number of examples to plot
+    k = num_samples
     selected_indices = random.choices(np.arange(len(camera)), k=k)
     
     # Create one figure with 2 rows and k columns
@@ -121,3 +121,119 @@ def plot_examples(model, val_loader, device, output_dir):
     plt.tight_layout()
     plt.savefig(f"{output_dir}/prediction_examples.png")
     plt.close()
+
+def visualize_attention(model, data_loader, device, output_dir, num_samples=3, random_samples=True):
+    model.eval()
+    # Collect samples
+    all_samples = []
+    
+    with torch.no_grad():
+        for batch in data_loader:
+            camera = batch['camera'].to(device)
+            sdc_history = batch['sdc_history_feature'].to(device)
+            sdc_future = batch['sdc_future_feature'].to(device)
+            
+            # Get predictions and attention weights
+            predictions, temporal_attn_weights, spatial_attn_weights = model(camera, sdc_history, return_attention=True)
+            
+            # Store each sample
+            for i in range(len(camera)):
+                sample = {
+                    'camera': camera[i].cpu().numpy(),
+                    'history': sdc_history[i].cpu().numpy(),
+                    'future': sdc_future[i].cpu().numpy(),
+                    'pred': predictions[i].cpu().numpy(),
+                    'tmp_attn': temporal_attn_weights[i].cpu().numpy(),
+                    'sp_attn': spatial_attn_weights[i].cpu().numpy()
+                }
+                all_samples.append(sample)
+            
+            if len(all_samples) >= num_samples * 10:
+                break
+    
+    # Select samples for visualization
+    if random_samples and len(all_samples) > num_samples:
+        selected_samples = random.sample(all_samples, num_samples)
+    else:
+        selected_samples = all_samples[:num_samples]
+    
+    # Create visualization directory if it doesn't exist
+    os.makedirs(output_dir, exist_ok=True)
+    
+    # Create visualization
+    plt.figure(figsize=(15, num_samples * 10))
+    
+    for i, sample in enumerate(selected_samples):
+        # Get data for this sample
+        camera_img = sample['camera']
+        history = sample['history']
+        future = sample['future']
+        pred = sample['pred']
+        tmp_attn = sample['tmp_attn']
+        sp_attn = sample['sp_attn']
+        
+        # Convert camera image from CHW to HWC format and denormalize if needed
+        camera_img = np.transpose(camera_img, (1, 2, 0))
+        
+        # If image is normalized with ImageNet stats, denormalize
+        mean = np.array([0.485, 0.456, 0.406])
+        std = np.array([0.229, 0.224, 0.225])
+        camera_img = camera_img * std + mean
+        camera_img = np.clip(camera_img, 0, 1)
+        
+        # 1. Raw Camera Image
+        plt.subplot(num_samples, 3, i * 3 + 1)
+        plt.imshow(camera_img)
+        plt.title(f'Sample {i+1} Camera Image')
+        plt.axis('off')
+        
+        # 2. Camera with Spatial Attention Overlay
+        plt.subplot(num_samples, 3, i * 3 + 2)
+        
+        # Resize spatial attention map to match camera image size if needed
+        sp_attn_resized = sp_attn
+        if sp_attn.shape != camera_img.shape[:2]:
+            # Assuming sp_attn is smaller than the image
+            from skimage.transform import resize
+            sp_attn_resized = resize(sp_attn, camera_img.shape[:2])
+        
+        # Plot the camera image
+        plt.imshow(camera_img)
+        
+        # Overlay attention heatmap with some transparency
+        plt.imshow(sp_attn_resized, cmap='hot', alpha=0.5)
+        plt.colorbar(label='Attention Weight')
+        plt.title(f'Sample {i+1} Spatial Attention')
+        plt.axis('off')
+        
+        # 3. Trajectory Plot
+        plt.subplot(num_samples, 3, i * 3 + 3)
+        
+        # Plot trajectory
+        plt.plot(history[:, 0], history[:, 1], 'b-', linewidth=2, label='History')
+        plt.plot(future[:, 0], future[:, 1], 'g-', linewidth=2, label='Ground Truth')
+        plt.plot(pred[:, 0], pred[:, 1], 'r--', linewidth=2, label='Prediction')
+        
+        # Highlight attention on history points
+        # Create colormap for temporal attention
+        cmap = cm.get_cmap('viridis')
+        norm_attn = (tmp_attn - tmp_attn.min()) / (tmp_attn.max() - tmp_attn.min() + 1e-8)
+        
+        for t in range(len(history)):
+            plt.scatter(history[t, 0], history[t, 1], 
+                      color=cmap(norm_attn[t]), 
+                      s=100 * (0.5 + norm_attn[t]), 
+                      alpha=0.7, 
+                      edgecolors='black', 
+                      zorder=3)
+        
+        plt.axis('equal')
+        plt.grid(True)
+        plt.legend()
+        plt.title(f'Sample {i+1} Trajectory with Temporal Attention')
+    
+    plt.tight_layout()
+    plt.savefig(f"{output_dir}/attention_visualization.png", dpi=300)
+    plt.close()
+    
+    print(f"Attention visualizations saved to {output_dir}")

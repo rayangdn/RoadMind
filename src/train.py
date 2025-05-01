@@ -115,7 +115,7 @@ def train_model(model, train_loader, val_loader, optimizer, scheduler, epochs=50
         val_ade.append(avg_ade.detach().cpu().numpy())
         val_fde.append(avg_fde.detach().cpu().numpy())
         
-        scheduler.step(avg_val_loss)
+        scheduler.step(avg_train_loss)
         
         print(f'Epoch {epoch+1}/{epochs} , Train Loss: {avg_train_loss:.4f}, Val Loss: {avg_val_loss:.4f}, ADE: {avg_ade:.4f}, FDE: {avg_fde:.4f}, Learning rate: {scheduler.get_last_lr()}')
          

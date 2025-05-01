@@ -16,8 +16,8 @@ def main():
     # Set hyperparameters
     batch_size = 32
     num_epochs = 200
-    learning_rate = 1e-3
-    patience = 20
+    learning_rate = 1e-4
+    patience = 30
     dropout = 0.5
     
     # Set device
@@ -57,7 +57,7 @@ def main():
 
     # Define optimizer and scheduler
     optimizer = optim.AdamW(model.parameters(), lr=learning_rate, weight_decay=3e-4)
-    scheduler = optim.lr_scheduler.ReduceLROnPlateau(optimizer, 'min', patience=10, factor=0.5, min_lr=1e-6)
+    scheduler = optim.lr_scheduler.ReduceLROnPlateau(optimizer, 'min', patience=15, factor=0.5, min_lr=1e-6)
     
     # Train model
     train_losses, val_losses, val_ade, val_fde = train_model(
