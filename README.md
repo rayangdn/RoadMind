@@ -72,7 +72,7 @@ project/
 │   ├── train.py               # Training loop implementation
 │   └── utils.py               # Utility functions
 ├── submission/                # Submission files
-└── requirements.txt        §# Python dependencies
+└── requirements.txt           # Python dependencies
 ```
 
 ## Setup
