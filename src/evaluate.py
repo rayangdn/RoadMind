@@ -72,7 +72,16 @@ def main():
     test_loader = DataLoader(test_dataset, batch_size=32, shuffle=False, num_workers=4, pin_memory=True)
     
     # Load model
-    model = RoadMind()
+    model = RoadMind(
+        input_dim=3,
+        hidden_dim=128,
+        image_embed_dim=128,
+        output_seq_len=60,
+        num_layers=2,
+        dropout_rate=0.3,
+        bidirectional=True, 
+    )
+    
     model.to(device)
     model.load_state_dict(torch.load(os.path.join(model_dir, 'best_model.pth')))
     
