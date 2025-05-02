@@ -172,3 +172,12 @@ cython_debug/
 
 # PyPI configuration file
 .pypirc
+
+# Data folders
+**/data/
+
+# Output folders
+**/outputs/checkpoints/
+
+# Temporary files
+**/src/__pycache__/
