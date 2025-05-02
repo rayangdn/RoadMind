@@ -58,21 +58,21 @@ This performance places our model well within the expected range for Milestone 1
 
 ```
 project/
-├── data/                   # Data directory (will be created)
-├── model/                  # Model checkpoints directory
+├── data/                      # Data directory (will be created)
+├── model/                     # Model checkpoints directory
 ├── outputs/
-│   ├── checkpoints/        # Training checkpoints
-│   ├── examples/           # Visualization examples
-│   └── logs/               # Training logs and curves
+│   ├── checkpoints/           # Training checkpoints
+│   ├── examples/              # Visualization examples
+│   └── logs/                  # Training logs and curves
 ├── src/
-│   ├── data_loader.py      # Dataset and data loading utilities
-│   ├── evaluate.py         # Evaluation script for inference
-│   ├── training_pipeline.py             # Main training script
-│   ├── model.py            # Model architecture definition
-│   ├── train.py            # Training loop implementation
-│   └── utils.py            # Utility functions
-├── submission/             # Submission files
-└── requirements.txt        # Python dependencies
+│   ├── data_loader.py         # Dataset and data loading utilities
+│   ├── evaluate.py            # Evaluation script for inference
+│   ├── training_pipeline.py   # Main training script
+│   ├── model.py               # Model architecture definition
+│   ├── train.py               # Training loop implementation
+│   └── utils.py               # Utility functions
+├── submission/                # Submission files
+└── requirements.txt        §# Python dependencies
 ```
 
 ## Setup
