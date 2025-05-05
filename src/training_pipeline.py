@@ -6,7 +6,7 @@ import torch.optim as optim
 import matplotlib.pyplot as plt
 import numpy as np
 
-from data_loader import NuplanDataLoader, NuPlanDataset
+from data_loader import NuplanDataLoader, AugmentedNuPlanDataset
 from model import RoadMind
 from train import train_model 
 from utils import plot_results, plot_examples
@@ -16,7 +16,7 @@ def main():
     # Set hyperparameters
     batch_size = 32
     num_epochs = 200
-    learning_rate = 5e-4
+    learning_rate = 1e-4
     patience = 20
     
     # Set device
@@ -41,8 +41,19 @@ def main():
     data_paths = data_loader.get_data_paths()
     
     # Create datasets
-    train_dataset = NuPlanDataset(data_paths['train'])
-    val_dataset = NuPlanDataset(data_paths['val'])
+    train_dataset = AugmentedNuPlanDataset(
+        data_paths['train'], 
+        test=False, 
+        validation=False, 
+        augment_prob=0.5
+    )
+    
+    val_dataset = AugmentedNuPlanDataset(
+        data_paths['val'], 
+        test=False, 
+        validation=True,
+        augment_prob=0.0
+        )
     
     # Create data loaders
     train_loader = DataLoader(train_dataset, batch_size=batch_size, shuffle=True, num_workers=4, pin_memory=True)
@@ -55,12 +66,12 @@ def main():
         image_embed_dim=128,
         output_seq_len=60,
         num_layers=2,
-        dropout_rate=0.3,
+        dropout_rate=0.4,
         bidirectional=True, 
     )
         
     model.to(device)
-    #print(f"Number of parameters: {sum(p.numel() for p in model.parameters() if p.requires_grad)}")
+    print(f"Number of parameters: {sum(p.numel() for p in model.parameters() if p.requires_grad)}")
 
     # Define optimizer and scheduler
     optimizer = optim.AdamW(model.parameters(), lr=learning_rate, weight_decay=1e-4)

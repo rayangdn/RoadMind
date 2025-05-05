@@ -4,7 +4,7 @@ import os
 import torch
 from torch.utils.data import DataLoader
 
-from data_loader import NuplanDataLoader, NuPlanDataset
+from data_loader import NuplanDataLoader, AugmentedNuPlanDataset
 from model import RoadMind
 from utils import plot_examples
 
@@ -66,7 +66,12 @@ def main():
     data_paths = data_loader.get_data_paths()
     
     # Create datasets
-    test_dataset = NuPlanDataset(data_paths['test'], testing=True)
+    test_dataset = AugmentedNuPlanDataset(
+        data_paths['test'], 
+        testing=True,
+        validation=False,
+        augment_prob=0.0
+    )
     
     # Create data loaders
     test_loader = DataLoader(test_dataset, batch_size=32, shuffle=False, num_workers=4, pin_memory=True)

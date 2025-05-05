@@ -39,6 +39,7 @@ def train_model(model, train_loader, val_loader, optimizer, scheduler, epochs=50
             
             # Backward pass and optimize
             loss.backward()
+            torch.nn.utils.clip_grad_norm_(model.parameters(), 1.0)
             optimizer.step()
             
             train_loss += loss.item()

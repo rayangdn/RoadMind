@@ -2,7 +2,8 @@
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-                
+from torchvision.models import efficientnet_b0, EfficientNet_B0_Weights
+
 class TemporalAttention(nn.Module):
     def __init__(self, hidden_size):
         super(TemporalAttention, self).__init__()
@@ -23,66 +24,90 @@ class TemporalAttention(nn.Module):
         return context
 
 class DrivingSceneEncoder(nn.Module):
-    def __init__(self, input_channels=3, output_dim=128, dropout_rate=0.2):
+    def __init__(self, output_dim=128, dropout_rate=0.2):
         super(DrivingSceneEncoder, self).__init__()
         
-        # First convolutional block
-        self.conv1 = nn.Conv2d(input_channels, 32, kernel_size=7, stride=2, padding=3)
-        self.bn1 = nn.BatchNorm2d(32)
-        self.dropout1 = nn.Dropout2d(dropout_rate)
+        # # First convolutional block
+        # self.conv1 = nn.Conv2d(input_channels, 32, kernel_size=7, stride=2, padding=3)
+        # self.bn1 = nn.BatchNorm2d(32)
+        # self.dropout1 = nn.Dropout2d(dropout_rate)
         
-        # Second convolutional block
-        self.conv2 = nn.Conv2d(32, 64, kernel_size=5, stride=2, padding=2)
-        self.bn2 = nn.BatchNorm2d(64)
-        self.dropout2 = nn.Dropout2d(dropout_rate)
+        # # Second convolutional block
+        # self.conv2 = nn.Conv2d(32, 64, kernel_size=5, stride=2, padding=2)
+        # self.bn2 = nn.BatchNorm2d(64)
+        # self.dropout2 = nn.Dropout2d(dropout_rate)
         
-        # Third convolutional block 
-        self.conv3 = nn.Conv2d(64, 128, kernel_size=3, stride=2, padding=1)
-        self.bn3 = nn.BatchNorm2d(128)
-        self.dropout3 = nn.Dropout2d(dropout_rate)
+        # # Third convolutional block 
+        # self.conv3 = nn.Conv2d(64, 128, kernel_size=3, stride=2, padding=1)
+        # self.bn3 = nn.BatchNorm2d(128)
+        # self.dropout3 = nn.Dropout2d(dropout_rate)
         
-        # Fourth convolutional block 
-        self.conv4 = nn.Conv2d(128, 256, kernel_size=3, stride=2, padding=1)
-        self.bn4 = nn.BatchNorm2d(256)
-        self.dropout4 = nn.Dropout2d(dropout_rate)
+        # # Fourth convolutional block 
+        # self.conv4 = nn.Conv2d(128, 256, kernel_size=3, stride=2, padding=1)
+        # self.bn4 = nn.BatchNorm2d(256)
+        # self.dropout4 = nn.Dropout2d(dropout_rate)
         
-        # Global average pooling to reduce spatial dimensions
-        self.adaptive_pool = nn.AdaptiveAvgPool2d((1, 1)) 
+        # # Global average pooling to reduce spatial dimensions
+        # self.adaptive_pool = nn.AdaptiveAvgPool2d((1, 1)) 
         
-        # Final FC layers
-        self.fc1 = nn.Linear(256, output_dim)
-        self.dropout_fc = nn.Dropout(dropout_rate)
+        # # Final FC layers
+        # self.fc1 = nn.Linear(256, output_dim)
+        # self.dropout_fc = nn.Dropout(dropout_rate)
+        
+        self.backbone = efficientnet_b0(weights=EfficientNet_B0_Weights.IMAGENET1K_V1)
+        
+        # Remove the classifier and pooling layers
+        self.backbone = nn.Sequential(*list(self.backbone.children())[:-2])
+        self.adaptive_pool = nn.AdaptiveAvgPool2d((1, 1))  # Global average pooling
+        
+        self.fc = nn.Sequential(
+            nn.Linear(1280, output_dim),  # EfficientNet-B0 outputs 1280 features
+            nn.ReLU(),
+            nn.Dropout(dropout_rate)
+        )
+        
+        # for name, param in list(self.backbone.features.named_parameters())[:4]:
+        #     param.requires_grad = False
         
     def forward(self, x):
         # Ensure input has the right dimensions
         if x.dim() == 3:
             x = x.unsqueeze(0)
-            
-        # First block
-        x = F.relu(self.bn1(self.conv1(x)))
-        x = self.dropout1(x)
         
-        # Second block
-        x = F.relu(self.bn2(self.conv2(x)))
-        x = self.dropout2(x)
+        # Pass through EfficientNet backbone
+        features = self.backbone(x)
         
-        # Third block
-        x = F.relu(self.bn3(self.conv3(x)))
-        x = self.dropout3(x)
-        
-        # Fourth block
-        x = F.relu(self.bn4(self.conv4(x)))
-        x = self.dropout4(x)
-
-        # Use adaptive pooling to get a fixed size output
-        x = self.adaptive_pool(x)
-        x = x.view(x.size(0), -1)  # Flatten to (batch_size, 256)
-        
-        # Final fully connected layer
-        x = F.relu(self.fc1(x))
-        x = self.dropout_fc(x)
-        
+        # Global average pooling
+        x = self.adaptive_pool(features) # [batch_size, 1280, 1, 1] 
+        x = x.view(x.size(0), -1)  # [batch_size, 1280]
+        x = self.fc(x)
         return x
+        
+        # # First block
+        # x = F.relu(self.bn1(self.conv1(x)))
+        # x = self.dropout1(x)
+        
+        # # Second block
+        # x = F.relu(self.bn2(self.conv2(x)))
+        # x = self.dropout2(x)
+        
+        # # Third block
+        # x = F.relu(self.bn3(self.conv3(x)))
+        # x = self.dropout3(x)
+        
+        # # Fourth block
+        # x = F.relu(self.bn4(self.conv4(x)))
+        # x = self.dropout4(x)
+
+        # # Use adaptive pooling to get a fixed size output
+        # x = self.adaptive_pool(x)
+        # x = x.view(x.size(0), -1)  # Flatten to (batch_size, 256)
+        
+        # # Final fully connected layer
+        # x = F.relu(self.fc1(x))
+        # x = self.dropout_fc(x)
+        
+        # return x
 
 class RoadMind(nn.Module):
     def __init__(self, input_dim=3, hidden_dim=128, image_embed_dim=128, output_seq_len=60, 
@@ -94,8 +119,8 @@ class RoadMind(nn.Module):
         self.bidirectional = bidirectional
         self.num_directions = 2 if bidirectional else 1
         
-        # Custom CNN encoder for processing camera data
-        self.image_encoder = DrivingSceneEncoder(input_channels=3, output_dim=image_embed_dim, dropout_rate=dropout_rate)
+        # EfficientNet-based encoder for processing camera data
+        self.image_encoder = DrivingSceneEncoder(output_dim=image_embed_dim, dropout_rate=dropout_rate)
         
         # GRU layer for processing history features
         self.gru = nn.GRU(
@@ -172,25 +197,19 @@ class RoadMind(nn.Module):
         return output
 
     def _initialize_weights(self):
-        for m in self.modules():
-            if isinstance(m, nn.Conv2d):
-                # Kaiming/He initialization works well with ReLU
-                nn.init.kaiming_normal_(m.weight, mode='fan_out', nonlinearity='relu')
-                if m.bias is not None:
-                    nn.init.constant_(m.bias, 0)
-                    
-            elif isinstance(m, nn.BatchNorm2d):
-                nn.init.constant_(m.weight, 1)
-                nn.init.constant_(m.bias, 0)
-                
-            elif isinstance(m, nn.Linear):
-                # Use kaiming for hidden layers with ReLU
-                if m != self.decoder[-1]:  # Not the final output layer
-                    nn.init.kaiming_normal_(m.weight, mode='fan_out', nonlinearity='relu')
-                    nn.init.constant_(m.bias, 0)
-                else:  # Output layer gets Xavier/Glorot for better distribution
-                    nn.init.xavier_normal_(m.weight)
-                    nn.init.constant_(m.bias, 0)
+        # Initialize weights for non-pretrained parts of the model
+        for m in [self.fusion, self.highway_gate, self.decoder, self.attention]:
+            for layer in m.modules():
+                if isinstance(layer, nn.Linear):
+                    # Use kaiming for hidden layers with ReLU
+                    if layer != getattr(self.decoder, '3', None):  # Not the final output layer
+                        nn.init.kaiming_normal_(layer.weight, mode='fan_out', nonlinearity='relu')
+                        if layer.bias is not None:
+                            nn.init.constant_(layer.bias, 0)
+                    else:  # Output layer gets Xavier/Glorot for better distribution
+                        nn.init.xavier_normal_(layer.weight)
+                        if layer.bias is not None:
+                            nn.init.constant_(layer.bias, 0)
                     
         # Special initialization for GRU
         for name, param in self.gru.named_parameters():
