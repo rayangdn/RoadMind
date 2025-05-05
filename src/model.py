@@ -53,7 +53,7 @@ class DrivingSceneEncoder(nn.Module):
         self.fc1 = nn.Linear(256, output_dim)
         self.dropout_fc = nn.Dropout(dropout_rate)
         
-    def forward(self, x):
+    def forward(self, x, return_features=False):
         # Ensure input has the right dimensions
         if x.dim() == 3:
             x = x.unsqueeze(0)
@@ -73,6 +73,9 @@ class DrivingSceneEncoder(nn.Module):
         # Fourth block
         x = F.relu(self.bn4(self.conv4(x)))
         x = self.dropout4(x)
+        
+        # Save features for auxiliary tasks before pooling
+        cnn_features = x  # Shape: [B, 256, H/16, W/16]
 
         # Use adaptive pooling to get a fixed size output
         x = self.adaptive_pool(x)
@@ -82,11 +85,15 @@ class DrivingSceneEncoder(nn.Module):
         x = F.relu(self.fc1(x))
         x = self.dropout_fc(x)
         
-        return x
+        if return_features:
+            return x, cnn_features
+        else:
+            return x
 
 class RoadMind(nn.Module):
     def __init__(self, input_dim=3, hidden_dim=128, image_embed_dim=128, output_seq_len=60, 
-                 num_layers=2, dropout_rate=0.3, bidirectional=True):
+                 num_layers=2, dropout_rate=0.3, bidirectional=True, 
+                 use_depth_aux=False, use_semantic_aux=False, num_semantic_classes=15):
         super(RoadMind, self).__init__()
         self.input_dim = input_dim
         self.hidden_dim = hidden_dim
@@ -94,8 +101,15 @@ class RoadMind(nn.Module):
         self.bidirectional = bidirectional
         self.num_directions = 2 if bidirectional else 1
         
+        # Auxiliary task flags
+        self.use_depth_aux = use_depth_aux
+        self.use_semantic_aux = use_semantic_aux
+        
         # Custom CNN encoder for processing camera data
         self.image_encoder = DrivingSceneEncoder(input_channels=3, output_dim=image_embed_dim, dropout_rate=dropout_rate)
+        
+        # Save CNN features for auxiliary tasks
+        self.cnn_features = None
         
         # GRU layer for processing history features
         self.gru = nn.GRU(
@@ -134,11 +148,46 @@ class RoadMind(nn.Module):
             nn.Linear(hidden_dim, output_seq_len * input_dim)
         )
         
+        # Depth estimation decoder (if enabled)
+        if self.use_depth_aux:
+            self.depth_decoder = nn.ModuleList([
+                nn.ConvTranspose2d(256, 128, kernel_size=3, stride=2, padding=1, output_padding=1),
+                nn.ReLU(),
+                nn.ConvTranspose2d(128, 64, kernel_size=3, stride=2, padding=1, output_padding=1),
+                nn.ReLU(),
+                nn.ConvTranspose2d(64, 32, kernel_size=3, stride=2, padding=1, output_padding=1),
+                nn.ReLU(),
+                nn.ConvTranspose2d(32, 16, kernel_size=3, stride=2, padding=1, output_padding=1),
+                nn.ReLU(),
+                nn.Conv2d(16, 1, kernel_size=3, padding=1),
+                nn.ReLU(),
+                # Add a final upsample to ensure correct dimensions
+                nn.Upsample(size=(200, 300), mode='bilinear', align_corners=False)
+            ])
+        
+        # Semantic segmentation decoder (if enabled)
+        if self.use_semantic_aux:
+            self.semantic_decoder = nn.ModuleList([
+                nn.ConvTranspose2d(256, 128, kernel_size=3, stride=2, padding=1, output_padding=1),
+                nn.ReLU(),
+                nn.ConvTranspose2d(128, 64, kernel_size=3, stride=2, padding=1, output_padding=1),
+                nn.ReLU(),
+                nn.ConvTranspose2d(64, 32, kernel_size=3, stride=2, padding=1, output_padding=1),
+                nn.ReLU(),
+                nn.ConvTranspose2d(32, 16, kernel_size=3, stride=2, padding=1, output_padding=1),
+                nn.ReLU(),
+                nn.Conv2d(16, num_semantic_classes, kernel_size=3, padding=1),
+                # Add a final upsample to ensure correct dimensions
+                nn.Upsample(size=(200, 300), mode='bilinear', align_corners=False)
+            ])
+        
         self._initialize_weights()
         
     def forward(self, camera, history_features):
-        # Process camera through custom image encoder
-        image_features = self.image_encoder(camera)
+        B = camera.size(0)
+        
+        # Process camera through image encoder - need to modify DrivingSceneEncoder to return intermediate features
+        image_features, self.cnn_features = self.image_encoder(camera, return_features=True)
         
         # Process history features through GRU
         gru_out, hidden = self.gru(history_features)
@@ -169,11 +218,30 @@ class RoadMind(nn.Module):
         # Reshape to match the expected output format
         output = output.view(-1, self.output_seq_len, self.input_dim)
         
-        return output
+        # Initialize auxiliary outputs as None
+        depth_output = None
+        semantic_output = None
+        
+        # Generate depth prediction if enabled
+        if self.use_depth_aux:
+            depth_features = self.cnn_features  # Use the saved CNN features
+            for layer in self.depth_decoder:
+                depth_features = layer(depth_features)
+            # Permute from [B, C, H, W] to [B, H, W, C] to match ground truth format
+            depth_output = depth_features.permute(0, 2, 3, 1)
+        
+        # Generate semantic segmentation if enabled
+        if self.use_semantic_aux:
+            semantic_features = self.cnn_features  # Use the saved CNN features
+            for layer in self.semantic_decoder:
+                semantic_features = layer(semantic_features)
+            semantic_output = semantic_features
+        
+        return output, depth_output, semantic_output
 
     def _initialize_weights(self):
         for m in self.modules():
-            if isinstance(m, nn.Conv2d):
+            if isinstance(m, nn.Conv2d) or isinstance(m, nn.ConvTranspose2d):
                 # Kaiming/He initialization works well with ReLU
                 nn.init.kaiming_normal_(m.weight, mode='fan_out', nonlinearity='relu')
                 if m.bias is not None:

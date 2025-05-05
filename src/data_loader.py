@@ -83,11 +83,22 @@ class NuPlanDataset(Dataset):
         # Extract motion history
         sdc_history_feature = data['sdc_history_feature'].astype(np.float32)
         
+        # Extract depth map data
+        depth = data['depth'].astype(np.float32)
+        # Ensure depth has the right shape (H, W, 1)
+        if len(depth.shape) == 2:
+            depth = np.expand_dims(depth, axis=-1)
+        
+        # Extract semantic segmentation labels
+        semantic_label = data['semantic_label'].astype(np.int64)
+        
         # Create sample dictionary
         if self.testing:
             sample = {
                 'camera': camera,
-                'sdc_history_feature': torch.from_numpy(sdc_history_feature)
+                'sdc_history_feature': torch.from_numpy(sdc_history_feature),
+                'depth': torch.from_numpy(depth),
+                'semantic_label': torch.from_numpy(semantic_label)
             }
         else:
             sdc_future_feature = data['sdc_future_feature'].astype(np.float32)
@@ -96,6 +107,8 @@ class NuPlanDataset(Dataset):
                 'camera': camera,
                 'sdc_history_feature': torch.from_numpy(sdc_history_feature),
                 'sdc_future_feature': torch.from_numpy(sdc_future_feature),
+                'depth': torch.from_numpy(depth),
+                'semantic_label': torch.from_numpy(semantic_label)
             }
 
         return sample
