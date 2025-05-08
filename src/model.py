@@ -130,7 +130,7 @@ from torchvision.models import efficientnet_b0, EfficientNet_B0_Weights
 #                 nn.Conv2d(32, 1, kernel_size=3, padding=1),
 #                 nn.ReLU(),
 #                 # Add a final upsample to ensure correct dimensions
-#                 nn.Upsample(size=(224, 224), mode='bilinear', align_corners=False)
+#                 nn.Upsample(size=(200, 300), mode='bilinear', align_corners=False)
 #             ])
 
 #         if self.use_semantic_aux:
@@ -147,7 +147,7 @@ from torchvision.models import efficientnet_b0, EfficientNet_B0_Weights
 #                 nn.ReLU(),
 #                 nn.Conv2d(32, num_semantic_classes, kernel_size=3, padding=1),
 #                 # Add a final upsample to ensure correct dimensions
-#                 nn.Upsample(size=(224, 224), mode='bilinear', align_corners=False)
+#                 nn.Upsample(size=(200, 300), mode='bilinear', align_corners=False)
 #             ])
 #         self._initialize_weights()
         
