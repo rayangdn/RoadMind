@@ -41,11 +41,15 @@ def train_model(model, train_loader, val_loader, optimizer, scheduler, epochs=50
     semantic_criterion = nn.CrossEntropyLoss()  # For semantic segmentation
     
     train_losses = []
+    train_traj_losses = []
+    train_depth_losses = []
+    train_semantic_losses = []
     val_losses = []
-    val_ade = []
-    val_fde = []
+    val_traj_losses = []
     val_depth_losses = []
     val_semantic_losses = []
+    val_ade = []
+    val_fde = []
     
     best_val_loss = float('inf')
     counter = 0
@@ -72,7 +76,7 @@ def train_model(model, train_loader, val_loader, optimizer, scheduler, epochs=50
             
             # Forward pass - now returns multiple outputs
             outputs = model(camera, sdc_history)
-            
+
             # Unpack outputs based on which auxiliary tasks are enabled
             if use_depth_aux and use_semantic_aux:
                 traj_output, depth_output, semantic_output = outputs
@@ -82,7 +86,10 @@ def train_model(model, train_loader, val_loader, optimizer, scheduler, epochs=50
                 traj_output, _, semantic_output = outputs
             else:
                 traj_output, _, _ = outputs
-            
+            print(depth.shape)
+            print(semantic.shape)
+            print(depth_output.shape)
+            print(semantic_output.shape)
             # Calculate trajectory loss
             t_loss = traj_criterion(traj_output, sdc_future)
             train_traj_loss += t_loss.item()
@@ -116,6 +123,9 @@ def train_model(model, train_loader, val_loader, optimizer, scheduler, epochs=50
         avg_train_semantic_loss = train_semantic_loss / len(train_loader) if use_semantic_aux else 0
         
         train_losses.append(avg_train_loss)
+        train_traj_losses.append(avg_train_traj_loss)
+        train_depth_losses.append(avg_train_depth_loss)
+        train_semantic_losses.append(avg_train_semantic_loss)
         
         # Validation
         model.eval()
@@ -148,7 +158,7 @@ def train_model(model, train_loader, val_loader, optimizer, scheduler, epochs=50
                     traj_output, _, semantic_output = outputs
                 else:
                     traj_output, _, _ = outputs
-                
+
                 # Calculate trajectory loss and metrics
                 t_loss = traj_criterion(traj_output, sdc_future)
                 val_traj_loss += t_loss.item()
@@ -164,8 +174,6 @@ def train_model(model, train_loader, val_loader, optimizer, scheduler, epochs=50
                 
                 # Add semantic loss if enabled
                 if use_semantic_aux and semantic is not None:
-                    # CrossEntropyLoss expects class indices as a tensor of shape (B, H, W)
-                    # No need to permute semantic as it's already (B, H, W)
                     s_loss = semantic_criterion(semantic_output, semantic)
                     val_semantic_loss += s_loss.item()
                     loss += lambda_semantic * s_loss
@@ -188,10 +196,11 @@ def train_model(model, train_loader, val_loader, optimizer, scheduler, epochs=50
         
         # Record metrics for plotting
         val_losses.append(avg_val_loss)
-        val_ade.append(avg_ade.detach().cpu().numpy())
-        val_fde.append(avg_fde.detach().cpu().numpy())
+        val_traj_losses.append(avg_val_traj_loss)
         val_depth_losses.append(avg_val_depth_loss)
         val_semantic_losses.append(avg_val_semantic_loss)
+        val_ade.append(avg_ade.detach().cpu().numpy())
+        val_fde.append(avg_fde.detach().cpu().numpy())
         
         # Update learning rate scheduler
         scheduler.step(avg_train_loss)
@@ -200,8 +209,10 @@ def train_model(model, train_loader, val_loader, optimizer, scheduler, epochs=50
         print(f'Epoch {epoch+1}/{epochs}:')
         print(f'  Train - Loss: {avg_train_loss:.4f}, Traj: {avg_train_traj_loss:.4f}, '
               f'Depth: {avg_train_depth_loss:.4f}, Semantic: {avg_train_semantic_loss:.4f}')
-        print(f'  Val   - Loss: {avg_val_loss:.4f}, ADE: {avg_ade:.4f}, FDE: {avg_fde:.4f}, '
-              f'Depth: {avg_val_depth_loss:.4f}, Semantic: {avg_val_semantic_loss:.4f}')
+        print(f'  Val   - Loss: {avg_val_loss:.4f}, Traj: {avg_val_traj_loss:.4f}, '
+              f'Depth: {avg_val_depth_loss:.4f}, Semantic: {avg_val_semantic_loss:.4f},'
+              f'ADE: {avg_ade:.4f}, FDE: {avg_fde:.4f}')
+        
         print(f'  Learning rate: {scheduler.get_last_lr()}')
          
         # Save checkpoint
@@ -227,4 +238,5 @@ def train_model(model, train_loader, val_loader, optimizer, scheduler, epochs=50
             print(f"Early stopping triggered after {epoch+1} epochs")
             break
     
-    return train_losses, val_losses, val_ade, val_fde, val_depth_losses, val_semantic_losses
+    return train_losses, train_traj_losses, train_depth_losses, train_semantic_losses, val_losses, val_traj_losses, val_depth_losses, val_semantic_losses, val_ade, val_fde,
+

@@ -6,7 +6,7 @@ import torch.optim as optim
 import matplotlib.pyplot as plt
 import numpy as np
 
-from data_loader import NuplanDataLoader, NuPlanDataset
+from data_loader import NuplanDataLoader, AugmentedNuPlanDataset
 from model import RoadMind
 from train import train_model 
 from utils import plot_results, plot_examples
@@ -15,7 +15,7 @@ def main():
     
     # Set hyperparameters
     batch_size = 32
-    num_epochs = 100
+    num_epochs = 2
     learning_rate = 5e-4
     patience = 20
     
@@ -48,8 +48,8 @@ def main():
     data_paths = data_loader.get_data_paths()
     
     # Create datasets
-    train_dataset = NuPlanDataset(data_paths['train'])
-    val_dataset = NuPlanDataset(data_paths['val'])
+    train_dataset = AugmentedNuPlanDataset(data_paths['train'], test=False, validation=False, augment_prob=0.5)
+    val_dataset = AugmentedNuPlanDataset(data_paths['val'], test=False, validation=True, augment_prob=0.0)
     
     # Create data loaders
     train_loader = DataLoader(train_dataset, batch_size=batch_size, shuffle=True, num_workers=4, pin_memory=True)
@@ -95,23 +95,24 @@ def main():
     )
     
     # Unpack training results
-    train_losses, val_losses, val_ade, val_fde, val_depth_losses, val_semantic_losses = train_results
+    train_losses, train_traj_losses, train_depth_losses, train_semantic_losses, val_losses, val_traj_losses, val_depth_losses, val_semantic_losses, val_ade, val_fde = train_results
+
 
     # Plot results
-    plot_results(
-    train_losses, val_losses, val_ade, val_fde, 
-    val_depth_losses, val_semantic_losses,
-    os.path.join(output_dir, 'logs')
-    )
+    plot_results(train_losses, train_traj_losses, train_depth_losses, train_semantic_losses,  
+                 val_losses, val_traj_losses, val_depth_losses, val_semantic_losses, 
+                 val_ade, val_fde, 
+                 os.path.join(output_dir, 'logs'))
     
     print(f"Best ADE: {min(val_ade):.4f}")
     print(f"Best FDE: {min(val_fde):.4f}")
-    
+    print(f"Best Trajectory Loss: {min(val_traj_losses):.4f}")
     if use_depth_aux:
         print(f"Best Depth Loss: {min(val_depth_losses):.4f}")
     
     if use_semantic_aux:
         print(f"Best Semantic Loss: {min(val_semantic_losses):.4f}")
+    print(f"Best Validation Loss: {min(val_losses):.4f}")
         
     print(f"Training complete. Results saved to {os.path.join(output_dir, 'logs')}")
     

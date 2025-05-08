@@ -35,16 +35,15 @@ def load_checkpoint(model, optimizer, checkpoint_path):
         return 0, None  # Start from epoch 0 if no checkpoint is found
     
     
-def plot_results(train_losses, val_losses, val_ade, val_fde, 
-                val_depth_losses, val_semantic_losses,
-                output_dir='../outputs/logs'):
-    """
-    Plot training and validation metrics, including auxiliary task losses
-    """
+def plot_results(train_losses, train_traj_losses, train_depth_losses, train_semantic_losses,  
+                 val_losses, val_traj_losses, val_depth_losses, val_semantic_losses, 
+                 val_ade, val_fde, 
+                 output_dir='../outputs/logs'):
+
     # Create a 4-panel figure
-    fig, axs = plt.subplots(1, 4, figsize=(24, 5))
+    fig, axs = plt.subplots(1, 5, figsize=(24, 5))
     
-    # Plot 1: Overall Losses
+    # Overall Losses
     axs[0].plot(train_losses, label='Training Loss')
     axs[0].plot(val_losses, label='Validation Loss')
     axs[0].set_xlabel('Epochs')
@@ -53,30 +52,41 @@ def plot_results(train_losses, val_losses, val_ade, val_fde,
     axs[0].legend()
     axs[0].grid(True)
     
-    # Plot 2: Trajectory metrics (ADE and FDE)
-    axs[1].plot(val_ade, label='ADE')
-    axs[1].plot(val_fde, label='FDE')
+    # Traj Losses
+    axs[1].plot(train_traj_losses, label='Training Trajectory Loss')
+    axs[1].plot(val_traj_losses, label='Validation Trajectory Loss')
     axs[1].set_xlabel('Epochs')
-    axs[1].set_ylabel('Displacement Error')
-    axs[1].set_title('Validation ADE and FDE')
+    axs[1].set_ylabel('Trajectory Loss')
+    axs[1].set_title('Trajectory Training and Validation Losses')
     axs[1].legend()
     axs[1].grid(True)
     
-    # Plot 3: Depth loss
-    axs[2].plot(val_depth_losses, label='Depth Loss')
+    # Depth loss
+    axs[2].plot(train_depth_losses, label='Training Depth Loss')
+    axs[2].plot(val_depth_losses, label='Validation Depth Loss')
     axs[2].set_xlabel('Epochs')
-    axs[2].set_ylabel('L1 Loss')
-    axs[2].set_title('Validation Depth Estimation Loss')
+    axs[2].set_ylabel('Depth Loss')
+    axs[2].set_title('Depth Training and Validation Losses')
     axs[2].legend()
     axs[2].grid(True)
     
-    # Plot 4: Semantic loss
-    axs[3].plot(val_semantic_losses, label='Semantic Loss')
+    # Semantic loss
+    axs[3].plot(train_semantic_losses, label='Training Semantic Loss')
+    axs[3].plot(val_semantic_losses, label='Validation Semantic Loss')
     axs[3].set_xlabel('Epochs')
-    axs[3].set_ylabel('Cross-Entropy Loss')
-    axs[3].set_title('Validation Semantic Segmentation Loss')
+    axs[3].set_ylabel('Semantic Loss')
+    axs[3].set_title('Semantic Training and Validation Losses')
     axs[3].legend()
     axs[3].grid(True)
+    
+    # ADE and FDE
+    axs[4].plot(val_ade, label='Validation ADE')
+    axs[4].plot(val_fde, label='Validation FDE')
+    axs[4].set_xlabel('Epochs')
+    axs[4].set_ylabel('Distance (m)')
+    axs[4].set_title('Validation ADE and FDE')
+    axs[4].legend()
+    axs[4].grid(True)
     
     plt.tight_layout()
     plt.savefig(os.path.join(output_dir, 'training_curves.png'))
