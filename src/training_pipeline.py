@@ -15,7 +15,7 @@ def main():
     
     # Set hyperparameters
     batch_size = 32
-    num_epochs = 2
+    num_epochs = 100
     learning_rate = 5e-4
     patience = 20
     
@@ -23,7 +23,7 @@ def main():
     use_depth_aux = True              # Whether to use depth estimation as auxiliary task
     use_semantic_aux = True          # Whether to use semantic segmentation as auxiliary task
     lambda_depth = 0.1                # Weight for depth loss
-    lambda_semantic = 0.1             # Weight for semantic segmentation loss
+    lambda_semantic = 0.1            # Weight for semantic segmentation loss
     num_semantic_classes = 15         # Number of semantic classes
     
     # Set device
