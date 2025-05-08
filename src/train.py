@@ -86,10 +86,7 @@ def train_model(model, train_loader, val_loader, optimizer, scheduler, epochs=50
                 traj_output, _, semantic_output = outputs
             else:
                 traj_output, _, _ = outputs
-            print(depth.shape)
-            print(semantic.shape)
-            print(depth_output.shape)
-            print(semantic_output.shape)
+
             # Calculate trajectory loss
             t_loss = traj_criterion(traj_output, sdc_future)
             train_traj_loss += t_loss.item()
@@ -102,10 +99,9 @@ def train_model(model, train_loader, val_loader, optimizer, scheduler, epochs=50
                 d_loss = depth_criterion(depth_output, depth)
                 train_depth_loss += d_loss.item()
                 loss += lambda_depth * d_loss
-            
+                
             # Add semantic loss if enabled
             if use_semantic_aux and semantic is not None:
-                # Reshape for CrossEntropyLoss: [B, C, H, W]
                 s_loss = semantic_criterion(semantic_output, semantic)
                 train_semantic_loss += s_loss.item()
                 loss += lambda_semantic * s_loss
@@ -171,10 +167,10 @@ def train_model(model, train_loader, val_loader, optimizer, scheduler, epochs=50
                     d_loss = depth_criterion(depth_output, depth)
                     val_depth_loss += d_loss.item()
                     v_loss += lambda_depth * d_loss
-                
+
                 # Add semantic loss if enabled
                 if use_semantic_aux and semantic is not None:
-                    s_loss = semantic_criterion(semantic_output, semantic)
+                    s_loss = semantic_criterion(semantic_output.squeeze(1), semantic)
                     val_semantic_loss += s_loss.item()
                     loss += lambda_semantic * s_loss
                 
@@ -210,9 +206,8 @@ def train_model(model, train_loader, val_loader, optimizer, scheduler, epochs=50
         print(f'  Train - Loss: {avg_train_loss:.4f}, Traj: {avg_train_traj_loss:.4f}, '
               f'Depth: {avg_train_depth_loss:.4f}, Semantic: {avg_train_semantic_loss:.4f}')
         print(f'  Val   - Loss: {avg_val_loss:.4f}, Traj: {avg_val_traj_loss:.4f}, '
-              f'Depth: {avg_val_depth_loss:.4f}, Semantic: {avg_val_semantic_loss:.4f},'
+              f'Depth: {avg_val_depth_loss:.4f}, Semantic: {avg_val_semantic_loss:.4f}, '
               f'ADE: {avg_ade:.4f}, FDE: {avg_fde:.4f}')
-        
         print(f'  Learning rate: {scheduler.get_last_lr()}')
          
         # Save checkpoint

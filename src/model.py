@@ -400,7 +400,7 @@ class RoadMind(nn.Module):
                 nn.Conv2d(16, 1, kernel_size=3, padding=1),
                 nn.ReLU(),
                 # Add a final upsample to ensure correct dimensions
-                nn.Upsample(size=(224, 224), mode='bilinear', align_corners=False)
+                nn.Upsample(size=(200, 300), mode='bilinear', align_corners=False)
             ])
         
         # Semantic segmentation decoder (if enabled)
@@ -414,9 +414,9 @@ class RoadMind(nn.Module):
                 nn.ReLU(),
                 nn.ConvTranspose2d(32, 16, kernel_size=3, stride=2, padding=1, output_padding=1),
                 nn.ReLU(),
-                nn.Conv2d(16, 1, kernel_size=3, padding=1),
+                nn.Conv2d(16, num_semantic_classes, kernel_size=3, padding=1),
                 # Add a final upsample to ensure correct dimensions
-                nn.Upsample(size=(224, 224), mode='bilinear', align_corners=False)
+                nn.Upsample(size=(200, 300), mode='bilinear', align_corners=False)
             ])
         
         self._initialize_weights()
@@ -473,7 +473,6 @@ class RoadMind(nn.Module):
             for layer in self.semantic_decoder:
                 semantic_features = layer(semantic_features)
             semantic_output = semantic_features
-            print(semantic_output.shape)
         
         return output, depth_output, semantic_output
 

@@ -15,7 +15,7 @@ def main():
     
     # Set hyperparameters
     batch_size = 32
-    num_epochs = 2
+    num_epochs = 3
     learning_rate = 5e-4
     patience = 20
     

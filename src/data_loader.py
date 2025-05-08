@@ -77,8 +77,6 @@ class AugmentedNuPlanDataset(Dataset):
             transforms.RandomApply([transforms.ColorJitter(brightness=0.2, contrast=0.2, saturation=0.2, hue=0.1)], p=0.7),  
             transforms.RandomApply([transforms.GaussianBlur(kernel_size=3, sigma=(0.1, 2.0))], p=0.7),  
         ])
-        
-        self.resize = transforms.Resize((224, 224), antialias=True)
  
     def __len__(self):
         return len(self.samples)
@@ -93,15 +91,10 @@ class AugmentedNuPlanDataset(Dataset):
         camera = torch.FloatTensor(data['camera']).permute(2, 0, 1) / 255.0
         history = torch.FloatTensor(data['sdc_history_feature'])
         depth = torch.FloatTensor(data['depth']).permute(2, 0, 1) / 255.0
-        semantic_label = torch.FloatTensor(data['semantic_label']).unsqueeze(0) / 255.0
+        semantic_label = torch.FloatTensor(data['semantic_label']).unsqueeze(0)
         
         if not self.test:
             future = torch.FloatTensor(data['sdc_future_feature'])
-
-        # Resize camera, depth, semantic_label
-        camera = self.resize(camera)
-        depth = self.resize(depth)
-        semantic_label = self.resize(semantic_label)
         
         # Normalize camera
         camera = self.normalize(camera)  
@@ -123,7 +116,7 @@ class AugmentedNuPlanDataset(Dataset):
                 'camera': camera,
                 'sdc_history_feature': history,
                 'depth': depth,
-                'semantic_label': semantic_label,
+                'semantic_label': semantic_label.squeeze(0).long(),
             }
         else:
 
@@ -132,7 +125,7 @@ class AugmentedNuPlanDataset(Dataset):
                 'sdc_history_feature': history,
                 'depth': depth,
                 'sdc_future_feature': future,
-                'semantic_label': semantic_label,
+                'semantic_label': semantic_label.squeeze(0).long(),
             }
         return sample
 
@@ -147,8 +140,6 @@ def visualize_samples(dataset, num_samples=4):
         )
     ])
     
-    inverse_resize = transforms.Resize((200, 300), antialias=True)
-    
     sample_indices = random.sample(range(len(dataset)), num_samples)
     
     fig, axes = plt.subplots(4, num_samples, figsize=(4*num_samples, 8))
@@ -158,23 +149,22 @@ def visualize_samples(dataset, num_samples=4):
         data = dataset[idx]
         
         # Plot camera view (top row)
-        camera_img = inverse_resize(data["camera"])
-        camera_img = inverse_normalize(camera_img).clamp(0, 1).permute(1, 2, 0) 
+        camera_img = inverse_normalize(data["camera"]).clamp(0, 1).permute(1, 2, 0) 
         
         axes[0, i].imshow(camera_img)
         axes[0, i].set_title(f"Camera View {i+1}")
         axes[0, i].axis("off")
         
         # Plot depth map (top middle row)
-        depth_img = inverse_resize(data["depth"]).clamp(0, 1).permute(1, 2, 0) 
+        depth_img = data["depth"].clamp(0, 1).permute(1, 2, 0) 
         
         axes[1, i].imshow(depth_img)
         axes[1, i].set_title(f"Depth Map {i+1}")
         axes[1, i].axis("off")
         
         # Plot semantic label (bottom middle row)
-        semantic_img = inverse_resize(data["semantic_label"]).clamp(0, 1).permute(1, 2, 0) 
-        
+
+        semantic_img = data["semantic_label"].unsqueeze(0).permute(1, 2, 0)
         axes[2, i].imshow(semantic_img)
         axes[2, i].set_title(f"Semantic Label {i+1}")
         axes[2, i].axis("off")

@@ -1,9 +1,9 @@
 import torch
 import os
 import matplotlib.pyplot as plt
-import matplotlib.cm as cm
 import random
 import numpy as np
+from torchvision import transforms
 
 def save_checkpoint(model, optimizer, epoch, loss, checkpoint_path="checkpoint.pth", store_checkpoint_for_every_epoch=False):
     """Save model and optimizer state to a checkpoint file."""
@@ -48,7 +48,7 @@ def plot_results(train_losses, train_traj_losses, train_depth_losses, train_sema
     axs[0].plot(val_losses, label='Validation Loss')
     axs[0].set_xlabel('Epochs')
     axs[0].set_ylabel('Loss')
-    axs[0].set_title('Training and Validation Losses')
+    axs[0].set_title('Total Training and Validation Losses')
     axs[0].legend()
     axs[0].grid(True)
     
@@ -119,9 +119,15 @@ def unormalize_image(normalized_image, mean=[0.587, 0.605, 0.589], std=[0.132, 0
 
 def plot_examples(model, data_loader, device, output_dir='../outputs/examples', 
                  num_samples=4, testing=False):
-    """
-    Visualize model predictions, including depth and semantic segmentation
-    """
+
+    # Define the inverse normalization transform
+    inverse_normalize = transforms.Compose([
+        transforms.Normalize(
+            mean=[-0.485/0.229, -0.456/0.224, -0.406/0.225],
+            std=[1/0.229, 1/0.224, 1/0.225]
+        )
+    ])
+    
     # Get batch of data
     data_batch_zero = next(iter(data_loader))
     camera = data_batch_zero['camera'].to(device)
@@ -141,16 +147,18 @@ def plot_examples(model, data_loader, device, output_dir='../outputs/examples',
         pred_future, pred_depth, pred_semantic = model(camera, history)
     
     # Convert tensors to numpy for plotting
-    camera_np = unormalize_image(camera).cpu().numpy()
+    camera_img = inverse_normalize(camera).clamp(0, 1).permute(0, 2, 3, 1) 
+    camera_np = camera_img.cpu().numpy()
     history_np = history.cpu().numpy()
     pred_future_np = pred_future.cpu().numpy()
     
     # Convert auxiliary outputs
-    depth_gt_np = depth_gt.cpu().numpy()
-    pred_depth_np = pred_depth.cpu().numpy()
+    depth_gt_np = depth_gt.permute(0, 2, 3, 1).cpu().numpy()
+    pred_depth_img = pred_depth.permute(0, 2, 3, 1)
+    pred_depth_np = pred_depth_img.cpu().numpy()
     
     semantic_gt_np = semantic_gt.cpu().numpy()
-    pred_semantic_np = torch.argmax(pred_semantic, dim=1).cpu().numpy()
+    pred_semantic_np = torch.argmax(pred_semantic, axis=1).cpu().numpy()
     
     # Select random samples to visualize
     k = num_samples
@@ -175,12 +183,12 @@ def plot_examples(model, data_loader, device, output_dir='../outputs/examples',
         14: (0, 60, 100)      # BUS
     }
     
-    # 1. Create figure for trajectories
+    # Create figure for trajectories
     fig, axes = plt.subplots(2, k, figsize=(4*k, 8))
     
     for i, idx in enumerate(selected_indices):
         # Plot camera view in the top row
-        axes[0, i].imshow(camera_np[idx].transpose(1, 2, 0))
+        axes[0, i].imshow(camera_np[idx])
         axes[0, i].set_title(f"Example {i+1}")
         axes[0, i].axis("off")
         
@@ -195,7 +203,7 @@ def plot_examples(model, data_loader, device, output_dir='../outputs/examples',
     plt.savefig(f"{output_dir}/prediction_examples.png")
     plt.close()
     
-    # 2. Plot depth estimation
+    # Plot depth estimation
     fig, axes = plt.subplots(2, k, figsize=(4*k, 8))
     
     for i, idx in enumerate(selected_indices):
@@ -213,7 +221,7 @@ def plot_examples(model, data_loader, device, output_dir='../outputs/examples',
     plt.savefig(f"{output_dir}/depth_examples.png")
     plt.close()
     
-    # 3. Plot semantic segmentation
+    # Plot semantic segmentation
     fig, axes = plt.subplots(2, k, figsize=(4*k, 8))
     
     for i, idx in enumerate(selected_indices):
