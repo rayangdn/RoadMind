@@ -174,13 +174,17 @@ cython_debug/
 .pypirc
 
 # Data folders
-**/data/
+**/data/test_public/
+**/data/train/
+**/data/val/
+**/data/__pycache__/
 
 # Output folders
-**/outputs/checkpoints/
+**/logs/
+**/checkpoints/
 
 # Submission folder
 **/submissions/
 
 # Temporary files
-**/src/__pycache__/
+**/__pycache__/
