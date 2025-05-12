@@ -21,10 +21,8 @@ def evaluate(model, test_loader, submission_dir, device):
             
             # Extract trajectory prediction from outputs
             if isinstance(outputs, list):
-                # Multi-task model returns a list with trajectory as first element
                 pred_future = outputs[0]
             else:
-                # Single-task model returns only trajectory
                 pred_future = outputs
             
             # Add to collection (only position coordinates, not heading)
