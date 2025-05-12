@@ -19,10 +19,11 @@ def compute_ade_fde(pred_trajs, future, include_heading=False):
     return ade.item(), fde.item()
 
 class ImageEncoder(nn.Module):
-    def __init__(self, output_dim=256):
+    def __init__(self, output_dim=256, return_features=False):
         super(ImageEncoder, self).__init__()
         
         self.output_dim = output_dim
+        self.return_features = return_features
         
         # Use a pretrained EfficientNet model
         self.backbone = models.efficientnet_b0(weights=models.EfficientNet_B0_Weights.DEFAULT)
@@ -39,11 +40,14 @@ class ImageEncoder(nn.Module):
         features = self.backbone(x)
         
         # Global average pooling
-        x = self.pool(features) # [batch_size, 1280, 1, 1] 
-        x = x.view(x.size(0), -1)  # [batch_size, 1280]
+        x = self.pool(features)
+        x = x.view(x.size(0), -1) 
         x = self.fc(x)
         
-        return x
+        if self.return_features:
+            return x, features
+        else:
+            return x
 
 class TrajectoryEncoder(nn.Module):
     def __init__(self, input_dim=3, hidden_dim=128, num_layers=1, dropout_rate=0.3):
@@ -59,7 +63,7 @@ class TrajectoryEncoder(nn.Module):
             hidden_size=hidden_dim,
             num_layers=self.num_layers,
             batch_first=True,
-            dropout=dropout_rate
+            dropout=dropout_rate if num_layers > 1 else 0,
         )
         
     def forward(self, x):
@@ -70,104 +74,97 @@ class TrajectoryEncoder(nn.Module):
         x = h_n[-1]
         
         return x
-
 class DepthDecoder(nn.Module):
-    def __init__(self, in_channels=1280):
+    def __init__(self, in_channels=1280, output_size=(200, 300)):
         super(DepthDecoder, self).__init__()
         
-        # Upsampling blocks
-        self.up1 = nn.Sequential(
+        self.output_size = output_size
+        
+        # Initial convolution to reduce the channel dimension
+        self.init_conv = nn.Sequential(
             nn.Conv2d(in_channels, 512, kernel_size=3, padding=1),
             nn.BatchNorm2d(512),
-            nn.ReLU(inplace=True),
-            nn.Upsample(scale_factor=2, mode='bilinear', align_corners=True)
+            nn.ReLU(inplace=True)
         )
         
-        self.up2 = nn.Sequential(
-            nn.Conv2d(512, 256, kernel_size=3, padding=1),
+        # Transposed convolution blocks for upsampling
+        self.decoder = nn.Sequential(
+            nn.ConvTranspose2d(512, 256, kernel_size=3, stride=2, padding=1, output_padding=1),
             nn.BatchNorm2d(256),
             nn.ReLU(inplace=True),
-            nn.Upsample(scale_factor=2, mode='bilinear', align_corners=True)
-        )
-        
-        self.up3 = nn.Sequential(
-            nn.Conv2d(256, 128, kernel_size=3, padding=1),
+            
+            nn.ConvTranspose2d(256, 128, kernel_size=3, stride=2, padding=1, output_padding=1),
             nn.BatchNorm2d(128),
             nn.ReLU(inplace=True),
-            nn.Upsample(scale_factor=2, mode='bilinear', align_corners=True)
-        )
-        
-        self.up4 = nn.Sequential(
-            nn.Conv2d(128, 64, kernel_size=3, padding=1),
+            
+            nn.ConvTranspose2d(128, 64, kernel_size=3, stride=2, padding=1, output_padding=1),
             nn.BatchNorm2d(64),
             nn.ReLU(inplace=True),
-            nn.Upsample(scale_factor=2, mode='bilinear', align_corners=True)
-        )
-        
-        # Final layer to produce depth map
-        self.final = nn.Sequential(
-            nn.Conv2d(64, 32, kernel_size=3, padding=1),
+            
+            nn.ConvTranspose2d(64, 32, kernel_size=3, stride=2, padding=1, output_padding=1),
             nn.BatchNorm2d(32),
             nn.ReLU(inplace=True),
-            nn.Conv2d(32, 1, kernel_size=1),
-            nn.Sigmoid()  # Normalize depth to [0,1]
+            
+            nn.Conv2d(32, 16, kernel_size=3, padding=1),
+            nn.BatchNorm2d(16),
+            nn.ReLU(inplace=True),
+            
+            nn.Conv2d(16, 1, kernel_size=3, padding=1),
+            nn.Sigmoid(),  # Normalize depth to [0,1]
+            
+            # Add a final upsample to ensure correct dimensions
+            nn.Upsample(size=output_size, mode='bilinear', align_corners=False)
         )
-    
+        
     def forward(self, x):
-        x = self.up1(x)
-        x = self.up2(x)
-        x = self.up3(x)
-        x = self.up4(x)
-        x = self.final(x)
+        x = self.init_conv(x)
+        x = self.decoder(x)
         return x
     
 class SemanticDecoder(nn.Module):
-    def __init__(self, in_channels=1280, num_classes=15):  # 15 semantic classes 
+    def __init__(self, in_channels=1280, num_classes=15, output_size=(200, 300)):
         super(SemanticDecoder, self).__init__()
         
-        # Upsampling blocks 
-        self.up1 = nn.Sequential(
+        self.output_size = output_size
+        
+        # Initial convolution to reduce the channel dimension
+        self.init_conv = nn.Sequential(
             nn.Conv2d(in_channels, 512, kernel_size=3, padding=1),
             nn.BatchNorm2d(512),
-            nn.ReLU(inplace=True),
-            nn.Upsample(scale_factor=2, mode='bilinear', align_corners=True)
+            nn.ReLU(inplace=True)
         )
         
-        self.up2 = nn.Sequential(
-            nn.Conv2d(512, 256, kernel_size=3, padding=1),
+        # Transposed convolution blocks for upsampling
+        self.decoder = nn.Sequential(
+            nn.ConvTranspose2d(512, 256, kernel_size=3, stride=2, padding=1, output_padding=1),
             nn.BatchNorm2d(256),
             nn.ReLU(inplace=True),
-            nn.Upsample(scale_factor=2, mode='bilinear', align_corners=True)
-        )
-        
-        self.up3 = nn.Sequential(
-            nn.Conv2d(256, 128, kernel_size=3, padding=1),
+            
+            nn.ConvTranspose2d(256, 128, kernel_size=3, stride=2, padding=1, output_padding=1),
             nn.BatchNorm2d(128),
             nn.ReLU(inplace=True),
-            nn.Upsample(scale_factor=2, mode='bilinear', align_corners=True)
-        )
-        
-        self.up4 = nn.Sequential(
-            nn.Conv2d(128, 64, kernel_size=3, padding=1),
+            
+            nn.ConvTranspose2d(128, 64, kernel_size=3, stride=2, padding=1, output_padding=1),
             nn.BatchNorm2d(64),
             nn.ReLU(inplace=True),
-            nn.Upsample(scale_factor=2, mode='bilinear', align_corners=True)
-        )
-        
-        # Final layer to produce semantic map 
-        self.final = nn.Sequential(
-            nn.Conv2d(64, 32, kernel_size=3, padding=1),
+            
+            nn.ConvTranspose2d(64, 32, kernel_size=3, stride=2, padding=1, output_padding=1),
             nn.BatchNorm2d(32),
             nn.ReLU(inplace=True),
-            nn.Conv2d(32, num_classes, kernel_size=1)
+            
+            nn.Conv2d(32, 16, kernel_size=3, padding=1),
+            nn.BatchNorm2d(16),
+            nn.ReLU(inplace=True),
+            
+            nn.Conv2d(16, num_classes, kernel_size=3, padding=1),
+            
+            # Add a final upsample to ensure correct dimensions
+            nn.Upsample(size=output_size, mode='bilinear', align_corners=False)
         )
         
     def forward(self, x):
-        x = self.up1(x)
-        x = self.up2(x)
-        x = self.up3(x)
-        x = self.up4(x)
-        x = self.final(x)
+        x = self.init_conv(x)
+        x = self.decoder(x)
         return x
         
 class TrajectoryDecoder(nn.Module):
@@ -185,7 +182,8 @@ class TrajectoryDecoder(nn.Module):
 
 class RoadMind(nn.Module):
     def __init__(self, input_hist_dim=3, hidden_dim=128, image_embed_dim=256, num_layers_gru=1,
-                 output_seq_len=60, dropout_rate=0.3, include_heading=False):
+                 output_seq_len=60, dropout_rate=0.3, num_semantic_classes=15,
+                 include_heading=False, use_depth_aux=False, use_semantic_aux=False, ):
         super(RoadMind, self).__init__()        
         
         self.input_hist_dim = input_hist_dim
@@ -195,11 +193,17 @@ class RoadMind(nn.Module):
         self.num_layers_gru = num_layers_gru
         self.output_seq_len = output_seq_len
         self.dropout_rate = dropout_rate
+        self.num_semantic_classes = num_semantic_classes
         self.include_heading = include_heading
+        self.use_depth_aux = use_depth_aux
+        self.use_semantic_aux = use_semantic_aux
         self.output_futur_dim = 2 if not include_heading else 3
         
         # Image encoder
-        self.image_encoder = ImageEncoder(output_dim=image_embed_dim)
+        self.image_encoder = ImageEncoder(
+            output_dim=image_embed_dim, 
+            return_features=use_depth_aux or use_semantic_aux
+        )
         
         # Trajectory encoder
         self.trajectory_encoder = TrajectoryEncoder(
@@ -224,10 +228,20 @@ class RoadMind(nn.Module):
             output_dim=self.output_seq_len * self.output_futur_dim,
         )
         
+        # Auxiliary decoders
+        if self.use_depth_aux:
+            self.depth_decoder = DepthDecoder(in_channels=1280)  # EfficientNet-B0 outputs 1280 channels
+            
+        if self.use_semantic_aux:
+            self.semantic_decoder = SemanticDecoder(in_channels=1280, num_classes=num_semantic_classes)
+        
     def forward(self, camera, history):
 
         # Process camera through  image encoder
-        image_features = self.image_encoder(camera)
+        if self.use_depth_aux or self.use_semantic_aux:
+            image_features, intermediate_features = self.image_encoder(camera)
+        else:
+            image_features = self.image_encoder(camera)
         
         # Process history through trajectory encoder
         history_hidden = self.trajectory_encoder(history)
@@ -242,20 +256,51 @@ class RoadMind(nn.Module):
         output = self.trajectory_decoder(fusion_output)
         output = output.view(-1, self.output_seq_len, self.output_futur_dim)
         
-        return output
+        results = [output]
+        
+        if self.use_depth_aux:
+            depth_pred = self.depth_decoder(intermediate_features)
+            results.append(depth_pred)
+        else:
+            results.append(None)
+            
+        if self.use_semantic_aux:
+            semantic_pred = self.semantic_decoder(intermediate_features)
+            results.append(semantic_pred)
+        else:
+            results.append(None)
+            
+        return results
          
-    def compute_loss(self, traj_pred, future):
+    def compute_loss(self, traj_pred, future, depth_pred=None, depth_gt=None, 
+                    semantic_pred=None, semantic_gt=None):
         
         if not self.include_heading:
             future = future[:, :, :2]
 
-        loss = nn.MSELoss()(traj_pred, future)
-  
-        return loss
-
+        traj_loss = nn.MSELoss()(traj_pred, future)
+        total_loss = traj_loss
+        
+        # Separate variables to track individual losses
+        depth_loss = torch.tensor(0.0, device=traj_pred.device)
+        semantic_loss = torch.tensor(0.0, device=traj_pred.device)
+        
+        # Add depth loss if applicable
+        if self.use_depth_aux and depth_pred is not None and depth_gt is not None:
+            depth_loss = nn.MSELoss()(depth_pred, depth_gt)
+            total_loss = total_loss + 10.0 * depth_loss 
+            
+        # Add semantic loss if applicable
+        if self.use_semantic_aux and semantic_pred is not None and semantic_gt is not None:
+            semantic_loss = nn.CrossEntropyLoss()(semantic_pred, semantic_gt)
+            total_loss = total_loss + 0.2 * semantic_loss  
+        
+        return total_loss, traj_loss, depth_loss, semantic_loss
+        
 class LightningRoadMind(pl.LightningModule):
     def __init__(self, hidden_dim=128, image_embed_dim=256, dropout_rate=0.3,
                  num_layers_gru=1, include_heading=False, include_dynamics=False,
+                 use_depth_aux=False, use_semantic_aux=False,
                  lr=1e-4, weight_decay=1e-5, scheduler_factor=0.5, 
                  scheduler_patience=5):
         
@@ -268,8 +313,15 @@ class LightningRoadMind(pl.LightningModule):
             image_embed_dim=image_embed_dim,
             num_layers_gru=num_layers_gru,
             dropout_rate=dropout_rate,
-            include_heading=include_heading
+            include_heading=include_heading,
+            use_depth_aux=use_depth_aux,
+            use_semantic_aux=use_semantic_aux,
         )
+        
+        # Store the flags for use in training/validation steps
+        self.use_depth_aux = use_depth_aux
+        self.use_semantic_aux = use_semantic_aux
+        self.include_heading = include_heading
         
         # Optimization parameters
         self.lr = lr
@@ -278,9 +330,10 @@ class LightningRoadMind(pl.LightningModule):
         self.scheduler_patience = scheduler_patience
         self.include_heading = include_heading
 
-        print("==================MODEL PARAMETERS==================")
+        print("\n==================MODEL PARAMETERS==================")
         print(f"Hidden dim: {hidden_dim}, Image embed dim: {image_embed_dim}, Dropout rate: {dropout_rate}")
         print(f"Num Layers GRU: {num_layers_gru}, Include heading: {include_heading}, Include dynamics: {include_dynamics}")
+        print(f"Use depth auxiliary: {use_depth_aux}, Use semantic auxiliary: {use_semantic_aux}")
         print("=======================================================\n")
         
         print("==================OPTIMIZATION PARAMETERS==================")
@@ -297,16 +350,32 @@ class LightningRoadMind(pl.LightningModule):
         
         camera = batch['camera']           
         history = batch['history']        
-        future = batch['future']          
+        future = batch['future'] 
+        
+        # Get auxiliary inputs
+        depth = batch['depth'] if self.use_depth_aux else None
+        semantic_label = batch['semantic_label'] if self.use_semantic_aux else None         
 
         # Forward pass
         outputs = self(camera, history)
+        traj_pred, depth_pred, semantic_pred = outputs
         
         # Compute loss
-        loss = self.model.compute_loss(outputs, future)
-        self.log('train_loss', loss, prog_bar=True)
+        total_loss, traj_loss, depth_loss, semantic_loss = self.model.compute_loss(
+            traj_pred, future, depth_pred, depth, semantic_pred, semantic_label
+        )
         
-        return loss
+        # Log all losses
+        self.log('train_loss', total_loss, prog_bar=True)
+        self.log('train_traj_loss', traj_loss, prog_bar=False)
+        
+        if self.use_depth_aux:
+            self.log('train_depth_loss', depth_loss, prog_bar=False)
+            
+        if self.use_semantic_aux:
+            self.log('train_semantic_loss', semantic_loss, prog_bar=False)
+        
+        return total_loss
 
     def validation_step(self, batch, batch_idx):
         
@@ -314,21 +383,36 @@ class LightningRoadMind(pl.LightningModule):
         history = batch['history']
         future = batch['future']
 
+        # Get auxiliary inputs if applicable
+        depth = batch['depth'] if self.use_depth_aux else None
+        semantic_label = batch['semantic_label'] if self.use_semantic_aux else None
+
         # Forward pass
         outputs = self(camera, history)
+        traj_pred, depth_pred, semantic_pred = outputs
         
-        # Compute loss
-        loss = self.model.compute_loss(outputs, future)
+        # Compute losses
+        total_loss, traj_loss, depth_loss, semantic_loss = self.model.compute_loss(
+            traj_pred, future, depth_pred, depth, semantic_pred, semantic_label
+        )
         
         # Compute ADE and FDE
-        ade, fde = compute_ade_fde(outputs, future, self.include_heading)
+        ade, fde = compute_ade_fde(traj_pred, future, self.include_heading)
         
         # Log metrics
-        self.log('val_loss', loss, prog_bar=True, sync_dist=True)
+        self.log('val_loss', total_loss, prog_bar=True, sync_dist=True)
+        self.log('val_traj_loss', traj_loss, prog_bar=False, sync_dist=True)
         self.log('val_ade', ade, prog_bar=True, sync_dist=True)
         self.log('val_fde', fde, prog_bar=True, sync_dist=True)
 
-        return {'val_loss': loss, 'val_ade': ade, 'val_fde': fde}
+          
+        if self.use_depth_aux:
+            self.log('val_depth_loss', depth_loss, prog_bar=False, sync_dist=True)
+            
+        if self.use_semantic_aux:
+            self.log('val_semantic_loss', semantic_loss, prog_bar=False, sync_dist=True)
+
+        return {'val_loss': total_loss, 'val_ade': ade, 'val_fde': fde}
 
     def configure_optimizers(self):
         optimizer = optim.Adam(

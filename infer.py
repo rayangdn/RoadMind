@@ -8,20 +8,32 @@ from data.data_loader import NuplanDataLoader, AugmentedNuPlanDataset, get_data_
 from model import LightningRoadMind
 
 def evaluate(model, test_loader, submission_dir, device):
-  
     model.eval()
     all_plans = []
+    
     with torch.no_grad():
         for batch in test_loader:
             camera = batch['camera'].to(device)
             history = batch['history'].to(device)
             
-            pred_future = model(camera, history)
+            # Forward pass
+            outputs = model(camera, history)
+            
+            # Extract trajectory prediction from outputs
+            if isinstance(outputs, list):
+                # Multi-task model returns a list with trajectory as first element
+                pred_future = outputs[0]
+            else:
+                # Single-task model returns only trajectory
+                pred_future = outputs
+            
+            # Add to collection (only position coordinates, not heading)
             all_plans.append(pred_future.cpu().numpy()[..., :2])
+            
     all_plans = np.concatenate(all_plans, axis=0)
     
     # Now save the plans as a csv file
-    pred_xy = all_plans[..., :2] # shape: (total_samples, T, 2)
+    pred_xy = all_plans  # shape: (total_samples, T, 2)
 
     # Flatten to (total_samples, T*2)
     total_samples, T, D = pred_xy.shape
@@ -45,7 +57,6 @@ def evaluate(model, test_loader, submission_dir, device):
     print(f"Shape of df_xy: {df_xy.shape}")
     
 def main():
-    
     # Set device
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     print(f"Using device: {device}")
@@ -73,10 +84,9 @@ def main():
     # Create data loaders
     test_loader = DataLoader(test_dataset, batch_size=1, shuffle=False, num_workers=4, pin_memory=True)
     
-    # Load model
-    checkpoint_path = "checkpoints/roadmind/roadmind_16_epoch=98_val_ade=1.72.ckpt"
+    # Load model - note that the checkpoint might contain use_depth_aux and use_semantic_aux params
+    checkpoint_path = "checkpoints/roadmind/roadmind_22_epoch=98_val_ade=1.72.ckpt"
     model = LightningRoadMind.load_from_checkpoint(checkpoint_path).to(device)
-    
     
     # Evaluate model
     evaluate(model, test_loader, submission_dir, device)

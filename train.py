@@ -13,7 +13,7 @@ from utils import plot_examples
 
 def train(num_epochs=50, lr=1e-4, weight_decay=1e-5, scheduler_factor=0.1, scheduler_patience=5,
           precision='high', hidden_dim=128, image_embed_dim=256, num_layers_gru=1, dropout_rate=0.3, 
-          include_heading=False, include_dynamics=True,
+          include_heading=False, include_dynamics=True, use_depth_aux=False, use_semantic_aux=False,
           batch_size=64, logger_name='roadmind'):
 
     
@@ -48,6 +48,8 @@ def train(num_epochs=50, lr=1e-4, weight_decay=1e-5, scheduler_factor=0.1, sched
         dropout_rate=dropout_rate,
         include_heading=include_heading,
         include_dynamics=include_dynamics,
+        use_depth_aux=use_depth_aux,
+        use_semantic_aux=use_semantic_aux,
         lr=lr,
         weight_decay=weight_decay,
         scheduler_factor=scheduler_factor,
@@ -111,7 +113,9 @@ def train(num_epochs=50, lr=1e-4, weight_decay=1e-5, scheduler_factor=0.1, sched
         device=device,
         save_dir=save_dir, 
         num_samples=4, 
-        testing=False
+        testing=False,
+        use_depth_aux=use_depth_aux,
+        use_semantic_aux=use_semantic_aux
     )
     
     return model, best_model_val_ade
@@ -124,9 +128,9 @@ def main():
     num_epochs = 100
     
     # Optimizer
-    lr = 0.00018518676207528317
-    weight_decay = 2.6551679570632748e-06
-    scheduler_factor = 0.7212519748210666
+    lr = 0.0002
+    weight_decay = 2.5e-06
+    scheduler_factor = 0.7
     scheduler_patience = 5
     precision = 'high'
     
@@ -137,6 +141,8 @@ def main():
     dropout_rate = 0.3
     include_heading = False
     include_dynamics = True
+    use_depth_aux = True 
+    use_semantic_aux = True
     
     # Data
     batch_size = 64
@@ -154,6 +160,8 @@ def main():
         dropout_rate=dropout_rate,
         include_heading=include_heading,
         include_dynamics=include_dynamics,
+        use_depth_aux=use_depth_aux,
+        use_semantic_aux=use_semantic_aux,
         batch_size=batch_size,
         logger_name='roadmind'
     )

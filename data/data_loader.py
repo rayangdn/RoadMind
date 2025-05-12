@@ -170,7 +170,6 @@ def visualize_samples(dataset, num_samples=4):
     # Process each sample
     for i, idx in enumerate(sample_indices):
         data = dataset[2]
-        print(data["future"][:, 2])
         
         # Plot camera view (top row)
         camera_img = inverse_normalize(data["camera"]).clamp(0, 1).permute(1, 2, 0) 
