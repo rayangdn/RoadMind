@@ -32,9 +32,7 @@ def main():
     print("Best hyperparameters: ", study.best_params)
     print("Best value: ", study.best_value)
     
-    import os
     import json
-    
     with open('./logs/roadmind/best_hyperparameters.json', 'w') as f:
         json.dump(study.best_params, f, indent=4)
     
