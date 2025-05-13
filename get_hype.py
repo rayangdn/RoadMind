@@ -27,14 +27,23 @@ def objective(trial):
 
 def main():
     study = optuna.create_study(direction="minimize")
-    study.optimize(objective, n_trials=20)
+    study.optimize(objective, n_trials=1)
     
     print("Best hyperparameters: ", study.best_params)
     print("Best value: ", study.best_value)
-    print("Best trial: ", study.best_trial)
     
-    import joblib
-    joblib.dump(study, './logs/roadmind/optuna_study.pkl')
+    import os
+    import json
+    
+    with open('./logs/roadmind/best_hyperparameters.json', 'w') as f:
+        json.dump(study.best_params, f, indent=4)
+    
+    # Save hyperparameters in a readable text format
+    with open('./logs/roadmind/best_hyperparameters.txt', 'w') as f:
+        f.write(f"Best ADE value: {study.best_value}\n\n")
+        f.write("Best hyperparameters:\n")
+        for key, value in study.best_params.items():
+            f.write(f"{key}: {value}\n")
     
 if __name__ == "__main__":
     main()
