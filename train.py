@@ -141,8 +141,8 @@ def main():
     dropout_rate = 0.3
     include_heading = False
     include_dynamics = True
-    use_depth_aux = True 
-    use_semantic_aux = True
+    use_depth_aux = False 
+    use_semantic_aux = False
     
     # Data
     batch_size = 64
