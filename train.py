@@ -122,14 +122,15 @@ def train(num_epochs=50, lr=1e-4, weight_decay=1e-5, scheduler_factor=0.1, sched
 
 def main():
     
+    print("Starting Train script")
     # <------ Hyperparameters ---->
     
     # Trainer
     num_epochs = 100
     
     # Optimizer
-    lr = 0.0002
-    weight_decay = 2.5e-06
+    lr = 0.0008
+    weight_decay = 5.4e-05
     scheduler_factor = 0.7
     scheduler_patience = 5
     precision = 'high'
@@ -137,12 +138,12 @@ def main():
     # Model
     hidden_dim = 128
     image_embed_dim = 256
-    num_layers_gru = 1
-    dropout_rate = 0.3
+    num_layers_gru = 2
+    dropout_rate = 0.4
     include_heading = False
     include_dynamics = True
-    use_depth_aux = False 
-    use_semantic_aux = False
+    use_depth_aux = True 
+    use_semantic_aux = True
     
     # Data
     batch_size = 64

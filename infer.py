@@ -83,7 +83,7 @@ def main():
     test_loader = DataLoader(test_dataset, batch_size=1, shuffle=False, num_workers=4, pin_memory=True)
     
     # Load model - note that the checkpoint might contain use_depth_aux and use_semantic_aux params
-    checkpoint_path = "checkpoints/roadmind/roadmind_22_epoch=98_val_ade=1.72.ckpt"
+    checkpoint_path = "checkpoints/roadmind/roadmind_21_epoch=97_val_ade=1.66.ckpt"
     model = LightningRoadMind.load_from_checkpoint(checkpoint_path).to(device)
     
     # Evaluate model

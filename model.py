@@ -80,15 +80,15 @@ class DepthDecoder(nn.Module):
         
         self.output_size = output_size
         
-        # Initial convolution to reduce the channel dimension
-        self.init_conv = nn.Sequential(
-            nn.Conv2d(in_channels, 512, kernel_size=3, padding=1),
-            nn.BatchNorm2d(512),
-            nn.ReLU(inplace=True)
-        )
+
         
         # Transposed convolution blocks for upsampling
         self.decoder = nn.Sequential(
+            
+            nn.ConvTranspose2d(in_channels, 512, kernel_size=3, stride=2, padding=1, output_padding=1),
+            nn.BatchNorm2d(512),
+            nn.ReLU(inplace=True),
+            
             nn.ConvTranspose2d(512, 256, kernel_size=3, stride=2, padding=1, output_padding=1),
             nn.BatchNorm2d(256),
             nn.ReLU(inplace=True),
@@ -117,7 +117,6 @@ class DepthDecoder(nn.Module):
         )
         
     def forward(self, x):
-        x = self.init_conv(x)
         x = self.decoder(x)
         return x
     
@@ -127,15 +126,13 @@ class SemanticDecoder(nn.Module):
         
         self.output_size = output_size
         
-        # Initial convolution to reduce the channel dimension
-        self.init_conv = nn.Sequential(
-            nn.Conv2d(in_channels, 512, kernel_size=3, padding=1),
-            nn.BatchNorm2d(512),
-            nn.ReLU(inplace=True)
-        )
-        
         # Transposed convolution blocks for upsampling
         self.decoder = nn.Sequential(
+            
+            nn.ConvTranspose2d(in_channels, 512, kernel_size=3, stride=2, padding=1, output_padding=1),
+            nn.BatchNorm2d(512),
+            nn.ReLU(inplace=True),
+            
             nn.ConvTranspose2d(512, 256, kernel_size=3, stride=2, padding=1, output_padding=1),
             nn.BatchNorm2d(256),
             nn.ReLU(inplace=True),
@@ -163,7 +160,6 @@ class SemanticDecoder(nn.Module):
         )
         
     def forward(self, x):
-        x = self.init_conv(x)
         x = self.decoder(x)
         return x
         

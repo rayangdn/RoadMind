@@ -184,7 +184,7 @@ cython_debug/
 **/checkpoints/
 
 # Submission folder
-**/submissions/
+#**/submissions/
 
 # Temporary files
 **/__pycache__/
