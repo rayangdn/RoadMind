@@ -178,8 +178,8 @@ class TrajectoryDecoder(nn.Module):
 
 class RoadMind(nn.Module):
     def __init__(self, input_hist_dim=3, hidden_dim=128, image_embed_dim=256, num_layers_gru=1,
-                 output_seq_len=60, dropout_rate=0.3, num_semantic_classes=15,
-                 include_heading=False, use_depth_aux=False, use_semantic_aux=False, ):
+                 output_seq_len=60, dropout_rate=0.3, weight_depth=10, weight_semantic=0.2, 
+                 num_semantic_classes=15, include_heading=False, use_depth_aux=False, use_semantic_aux=False, ):
         super(RoadMind, self).__init__()        
         
         self.input_hist_dim = input_hist_dim
@@ -189,6 +189,8 @@ class RoadMind(nn.Module):
         self.num_layers_gru = num_layers_gru
         self.output_seq_len = output_seq_len
         self.dropout_rate = dropout_rate
+        self.weight_depth = weight_depth
+        self.weight_semantic = weight_semantic
         self.num_semantic_classes = num_semantic_classes
         self.include_heading = include_heading
         self.use_depth_aux = use_depth_aux
@@ -284,18 +286,19 @@ class RoadMind(nn.Module):
         # Add depth loss if applicable
         if self.use_depth_aux and depth_pred is not None and depth_gt is not None:
             depth_loss = nn.MSELoss()(depth_pred, depth_gt)
-            total_loss = total_loss + 10.0 * depth_loss 
+            total_loss = total_loss + self.weight_depth * depth_loss 
             
         # Add semantic loss if applicable
         if self.use_semantic_aux and semantic_pred is not None and semantic_gt is not None:
             semantic_loss = nn.CrossEntropyLoss()(semantic_pred, semantic_gt)
-            total_loss = total_loss + 0.2 * semantic_loss  
+            total_loss = total_loss + self.weight_semantic * semantic_loss  
         
         return total_loss, traj_loss, depth_loss, semantic_loss
         
 class LightningRoadMind(pl.LightningModule):
-    def __init__(self, hidden_dim=128, image_embed_dim=256, dropout_rate=0.3,
-                 num_layers_gru=1, include_heading=False, include_dynamics=False,
+    def __init__(self, hidden_dim=128, image_embed_dim=256, num_layers_gru=1, 
+                 dropout_rate=0.3, weight_depth=10, weight_semantic=0.2, 
+                 include_heading=False, include_dynamics=False,
                  use_depth_aux=False, use_semantic_aux=False,
                  lr=1e-4, weight_decay=1e-5, scheduler_factor=0.5, 
                  scheduler_patience=5):
@@ -309,7 +312,9 @@ class LightningRoadMind(pl.LightningModule):
             image_embed_dim=image_embed_dim,
             num_layers_gru=num_layers_gru,
             dropout_rate=dropout_rate,
-            include_heading=include_heading,
+            weight_depth=weight_depth if use_depth_aux else 0,
+            weight_semantic=weight_semantic if use_semantic_aux else 0,
+            include_heading=include_heading ,
             use_depth_aux=use_depth_aux,
             use_semantic_aux=use_semantic_aux,
         )
@@ -327,8 +332,8 @@ class LightningRoadMind(pl.LightningModule):
         self.include_heading = include_heading
 
         print("\n==================MODEL PARAMETERS==================")
-        print(f"Hidden dim: {hidden_dim}, Image embed dim: {image_embed_dim}, Dropout rate: {dropout_rate}")
-        print(f"Num Layers GRU: {num_layers_gru}, Include heading: {include_heading}, Include dynamics: {include_dynamics}")
+        print(f"Hidden dim: {hidden_dim}, Image embed dim: {image_embed_dim}, Num Layers GRU: {num_layers_gru}")
+        print(f"Dropout rate: {dropout_rate}, Include heading: {include_heading}, Include dynamics: {include_dynamics}")
         print(f"Use depth auxiliary: {use_depth_aux}, Use semantic auxiliary: {use_semantic_aux}")
         print("=======================================================\n")
         

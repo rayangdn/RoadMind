@@ -13,6 +13,7 @@ from utils import plot_examples
 
 def train(num_epochs=50, lr=1e-4, weight_decay=1e-5, scheduler_factor=0.1, scheduler_patience=5,
           precision='high', hidden_dim=128, image_embed_dim=256, num_layers_gru=1, dropout_rate=0.3, 
+          weight_depth=20, weight_semantic=0.2,
           include_heading=False, include_dynamics=True, use_depth_aux=False, use_semantic_aux=False,
           batch_size=64, logger_name='roadmind'):
 
@@ -46,6 +47,8 @@ def train(num_epochs=50, lr=1e-4, weight_decay=1e-5, scheduler_factor=0.1, sched
         image_embed_dim=image_embed_dim,
         num_layers_gru=num_layers_gru,
         dropout_rate=dropout_rate,
+        weight_depth=weight_depth,
+        weight_semantic=weight_semantic,
         include_heading=include_heading,
         include_dynamics=include_dynamics,
         use_depth_aux=use_depth_aux,
@@ -140,6 +143,8 @@ def main():
     image_embed_dim = 256
     num_layers_gru = 2
     dropout_rate = 0.4
+    weight_depth = 20
+    weight_semantic = 0.2
     include_heading = False
     include_dynamics = True
     use_depth_aux = True 
@@ -159,6 +164,8 @@ def main():
         image_embed_dim=image_embed_dim,
         num_layers_gru=num_layers_gru,
         dropout_rate=dropout_rate,
+        weight_depth=weight_depth,
+        weight_semantic=weight_semantic,
         include_heading=include_heading,
         include_dynamics=include_dynamics,
         use_depth_aux=use_depth_aux,
