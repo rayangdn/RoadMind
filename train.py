@@ -126,10 +126,11 @@ def train(num_epochs=50, lr=1e-4, weight_decay=1e-5, scheduler_factor=0.1, sched
 def main():
     
     print("Starting Train script")
+    
     # <------ Hyperparameters ---->
     
     # Trainer
-    num_epochs = 100
+    num_epochs = 150
     
     # Optimizer
     lr = 0.0008
@@ -143,7 +144,7 @@ def main():
     image_embed_dim = 256
     num_layers_gru = 2
     dropout_rate = 0.4
-    weight_depth = 20
+    weight_depth = 10
     weight_semantic = 0.2
     include_heading = False
     include_dynamics = True
@@ -153,6 +154,8 @@ def main():
     # Data
     batch_size = 64
     
+    # <--------------------------->   
+     
     model, best_model_score = train(
         num_epochs=num_epochs,
         lr=lr,
