@@ -145,7 +145,7 @@ The submission file format follows the Kaggle competition requirements with colu
 Training curves and example predictions are automatically saved during training:
 
 - **Training Curves**: Located in the `logs/roadmind/` directory
-  - Visualize with TensorBoard: `tensorboard --logdir=./logs
+  - Visualize with TensorBoard: `tensorboard --logdir=./logs`
 - **Example Predictions**: Visualizations include:
   - Camera view
   - Trajectory prediction (history, ground truth, and prediction)
