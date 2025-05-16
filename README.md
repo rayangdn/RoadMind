@@ -145,10 +145,11 @@ The submission file format follows the Kaggle competition requirements with colu
 Training curves and example predictions are automatically saved during training:
 
 - **Training Curves**: Located in the `logs/roadmind/` directory
+  - Visualize with TensorBoard: `tensorboard --logdir=./logs
 - **Example Predictions**: Visualizations include:
   - Camera view
   - Trajectory prediction (history, ground truth, and prediction)
   - Depth map (ground truth and prediction)
   - Semantic segmentation (ground truth and prediction)
 
-These visualizations show the model's performance across all tasks, providing insight into how the auxiliary tasks contribute to improved trajectory prediction.
+These visualizations show the model's performance across all tasks, providing insight into how the auxiliary tasks contribute to improved trajectory prediction. TensorBoard allows you to monitor metrics like loss, ADE, FDE, and learning rate in real-time during training.
