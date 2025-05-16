@@ -182,6 +182,7 @@ cython_debug/
 # Output folders
 **/logs/
 **/checkpoints/
+**/model/
 
 # Submission folder
 #**/submissions/
