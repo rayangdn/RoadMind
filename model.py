@@ -106,8 +106,6 @@ class DepthDecoder(nn.Module):
         
         self.output_size = output_size
         
-
-        
         # Transposed convolution blocks for upsampling
         self.decoder = nn.Sequential(
             
