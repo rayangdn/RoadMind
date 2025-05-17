@@ -18,6 +18,32 @@ def compute_ade_fde(pred_trajs, future, include_heading=False):
     
     return ade.item(), fde.item()
 
+# More weights for the last points
+def weighted_mse_loss(prediction, target, weight_schedule='linear', max_weight=5000.0, eps=1e-6):
+    batch_size, seq_len, dims = prediction.shape
+    
+    # Generate weights based on schedule
+    t = torch.linspace(1.0, max_weight, steps=seq_len, device=prediction.device)
+    
+    if weight_schedule == 'quadratic':
+        # Smoother increase with mid-points getting moderate weights
+        alpha = torch.sqrt(torch.linspace(1.0, max_weight**2, steps=seq_len, device=prediction.device))
+    elif weight_schedule == 'exp':
+        # More aggressive weighting of later points
+        alpha = torch.exp(torch.linspace(0, np.log(max_weight), steps=seq_len, device=prediction.device))
+    else:  # default to linear
+        alpha = t
+    
+    # Normalize weights to avoid changing overall loss magnitude too much
+    alpha = alpha / alpha.mean()
+    
+    weights = alpha.view(1, seq_len, 1).expand(batch_size, seq_len, dims)
+    
+    squared_error = weights * (prediction - target)**2
+    
+    # Mean over all dimensions
+    return squared_error.mean()
+
 class ImageEncoder(nn.Module):
     def __init__(self, output_dim=256, return_features=False):
         super(ImageEncoder, self).__init__()
@@ -271,12 +297,20 @@ class RoadMind(nn.Module):
         return results
          
     def compute_loss(self, traj_pred, future, depth_pred=None, depth_gt=None, 
-                    semantic_pred=None, semantic_gt=None):
-        
+                semantic_pred=None, semantic_gt=None, 
+                weight_schedule='linear', max_weight=5000.0):
+    
         if not self.include_heading:
             future = future[:, :, :2]
 
-        traj_loss = nn.MSELoss()(traj_pred, future)
+        # Use weighted MSE loss for trajectory prediction
+        traj_loss = weighted_mse_loss(
+            traj_pred, 
+            future, 
+            weight_schedule=weight_schedule,
+            max_weight=max_weight
+        )
+        
         total_loss = traj_loss
         
         # Separate variables to track individual losses
@@ -287,7 +321,7 @@ class RoadMind(nn.Module):
         if self.use_depth_aux and depth_pred is not None and depth_gt is not None:
             depth_loss = nn.MSELoss()(depth_pred, depth_gt)
             total_loss = total_loss + self.weight_depth * depth_loss 
-            
+                
         # Add semantic loss if applicable
         if self.use_semantic_aux and semantic_pred is not None and semantic_gt is not None:
             semantic_loss = nn.CrossEntropyLoss()(semantic_pred, semantic_gt)
@@ -427,7 +461,7 @@ class LightningRoadMind(pl.LightningModule):
             mode='min',          
             factor=self.scheduler_factor,          
             patience=self.scheduler_patience,          
-            min_lr=1e-6,        
+            min_lr=1e-7,        
         )
 
         return {

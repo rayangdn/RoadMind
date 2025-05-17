@@ -126,7 +126,6 @@ def train(num_epochs=50, lr=1e-4, weight_decay=1e-5, scheduler_factor=0.1, sched
 def main():
     
     print("Starting Train script")
-    
     # <------ Hyperparameters ---->
     
     # Trainer
@@ -154,8 +153,6 @@ def main():
     # Data
     batch_size = 64
     
-    # <--------------------------->   
-     
     model, best_model_score = train(
         num_epochs=num_epochs,
         lr=lr,
@@ -181,6 +178,3 @@ def main():
         
 if __name__ == "__main__":
     main()
-    
-    
-    
