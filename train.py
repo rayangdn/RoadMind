@@ -13,9 +13,7 @@ from utils import plot_examples
 
 def train(num_epochs=50, lr=1e-4, weight_decay=1e-5, scheduler_factor=0.1, scheduler_patience=5,
           precision='high', hidden_dim=128, image_embed_dim=256, num_layers_gru=1, dropout_rate=0.3, 
-          weight_depth=20, weight_semantic=0.2,
-          include_heading=False, include_dynamics=True, use_depth_aux=False, use_semantic_aux=False,
-          batch_size=64, logger_name='roadmind'):
+          include_heading=False, include_dynamics=True, batch_size=64, logger_name='roadmind'):
 
     
     # Set seed for reproducibility
@@ -34,7 +32,7 @@ def train(num_epochs=50, lr=1e-4, weight_decay=1e-5, scheduler_factor=0.1, sched
     # Create datasets and data loaders
     data_paths = get_data_paths(data_dir)
     train_dataset = AugmentedNuPlanDataset(data_paths['train'], test=False, include_dynamics=include_dynamics, augment_prob=0.5)
-    val_dataset = AugmentedNuPlanDataset(data_paths['val'], test=False, include_dynamics=include_dynamics, augment_prob=0.0) # No augmentation for validation
+    val_dataset = AugmentedNuPlanDataset(data_paths['val_real'], test=False, include_dynamics=include_dynamics, augment_prob=0.0) # No augmentation for validation
     train_dataloader = DataLoader(train_dataset, batch_size=batch_size, num_workers=8, shuffle=True, pin_memory=True)
     val_dataloader = DataLoader(val_dataset, batch_size=32, shuffle=False, num_workers=8, pin_memory=True)
     
@@ -47,12 +45,8 @@ def train(num_epochs=50, lr=1e-4, weight_decay=1e-5, scheduler_factor=0.1, sched
         image_embed_dim=image_embed_dim,
         num_layers_gru=num_layers_gru,
         dropout_rate=dropout_rate,
-        weight_depth=weight_depth,
-        weight_semantic=weight_semantic,
         include_heading=include_heading,
         include_dynamics=include_dynamics,
-        use_depth_aux=use_depth_aux,
-        use_semantic_aux=use_semantic_aux,
         lr=lr,
         weight_decay=weight_decay,
         scheduler_factor=scheduler_factor,
@@ -117,8 +111,6 @@ def train(num_epochs=50, lr=1e-4, weight_decay=1e-5, scheduler_factor=0.1, sched
         save_dir=save_dir, 
         num_samples=4, 
         testing=False,
-        use_depth_aux=use_depth_aux,
-        use_semantic_aux=use_semantic_aux
     )
     
     return model, best_model_val_ade
@@ -144,12 +136,8 @@ def main():
     image_embed_dim = 256
     num_layers_gru = 2
     dropout_rate = 0.4
-    weight_depth = 10
-    weight_semantic = 0.2
     include_heading = False
     include_dynamics = True
-    use_depth_aux = True 
-    use_semantic_aux = True
     
     # Data
     batch_size = 64
@@ -167,12 +155,8 @@ def main():
         image_embed_dim=image_embed_dim,
         num_layers_gru=num_layers_gru,
         dropout_rate=dropout_rate,
-        weight_depth=weight_depth,
-        weight_semantic=weight_semantic,
         include_heading=include_heading,
         include_dynamics=include_dynamics,
-        use_depth_aux=use_depth_aux,
-        use_semantic_aux=use_semantic_aux,
         batch_size=batch_size,
         logger_name='roadmind'
     )

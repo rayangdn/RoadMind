@@ -15,7 +15,8 @@ class NuplanDataLoader:
         self.file_urls = {
             'train': "https://drive.google.com/uc?id=1YkGwaxBKNiYL2nq--cB6WMmYGzRmRKVr",
             'val': "https://drive.google.com/uc?id=1wtmT_vH9mMUNOwrNOMFP6WFw6e8rbOdu",
-            'test': "https://drive.google.com/uc?id=1G9xGE7s-Ikvvc2-LZTUyuzhWAlNdLTLV"
+            'val_real': "https://drive.google.com/uc?id=17DREGym_-v23f_qbkMHr7vJstbuTt0if",
+           # 'test': "https://drive.google.com/uc?id=1G9xGE7s-Ikvvc2-LZTUyuzhWAlNdLTLV"
         }
         
         # Download data if requested and not already present
@@ -81,8 +82,7 @@ class AugmentedNuPlanDataset(Dataset):
         # Extract camera, history and future features
         camera = torch.FloatTensor(data['camera']).permute(2, 0, 1) / 255.0
         history = torch.FloatTensor(data['sdc_history_feature'])
-        depth = torch.FloatTensor(data['depth']).permute(2, 0, 1) / 255.0
-        semantic_label = torch.LongTensor(data['semantic_label'])
+
         if not self.test:
             future = torch.FloatTensor(data['sdc_future_feature'])
 
@@ -93,8 +93,6 @@ class AugmentedNuPlanDataset(Dataset):
         if random.random() < self.augment_prob:
             camera = self.augmentations(camera)
             camera = torch.flip(camera, dims=[2]) # Flip horizontally
-            depth = torch.flip(depth, dims=[2])
-            semantic_label = torch.flip(semantic_label, dims=[1])
             history[:, 1] = -history[:, 1] # Flip y-coordinates
             history[:, 2] = -history[:, 2] # Flip heading-coordinates
             if not self.test:
@@ -108,16 +106,12 @@ class AugmentedNuPlanDataset(Dataset):
         if self.test:
             sample = {
                 'camera': camera,
-                'history': history,
-                'depth': depth,
-                'semantic_label': semantic_label,
+                'history': history
             }
         else:
             sample = {
                 'camera': camera,
                 'history': history,
-                'depth': depth,
-                'semantic_label': semantic_label,
                 'future': future,
             }
         return sample
@@ -165,11 +159,11 @@ def visualize_samples(dataset, num_samples=4):
     
     sample_indices = random.sample(range(len(dataset)), num_samples)
     
-    fig, axes = plt.subplots(4, num_samples, figsize=(4*num_samples, 8))
+    fig, axes = plt.subplots(2, num_samples, figsize=(4*num_samples, 8))
     
     # Process each sample
     for i, idx in enumerate(sample_indices):
-        data = dataset[2]
+        data = dataset[idx]
         
         # Plot camera view (top row)
         camera_img = inverse_normalize(data["camera"]).clamp(0, 1).permute(1, 2, 0) 
@@ -177,29 +171,16 @@ def visualize_samples(dataset, num_samples=4):
         axes[0, i].set_title(f"Camera View {i+1}")
         axes[0, i].axis("off")
         
-        # Plot depth map (top middle row)
-        depth_img = data["depth"].clamp(0, 1).permute(1, 2, 0) 
-        
-        axes[1, i].imshow(depth_img)
-        axes[1, i].set_title(f"Depth Map {i+1}")
-        axes[1, i].axis("off")
-        
-        # Plot semantic label (bottom middle row)
-        semantic_img = data["semantic_label"].unsqueeze(0).permute(1, 2, 0)
-        axes[2, i].imshow(semantic_img)
-        axes[2, i].set_title(f"Semantic Label {i+1}")
-        axes[2, i].axis("off")
-        
         # Plot trajectory (bottom row)
         history = data["history"]
         future = data["future"]
         
-        axes[3, i].plot(history[:, 0], history[:, 1], "o-", color="gold", linewidth=2, label="Past")
-        axes[3, i].plot(future[:, 0], future[:, 1], "o-", color="green", linewidth=2, label="Future")
-        axes[3, i].set_title(f"Trajectory {i+1}")
-        axes[3, i].legend(loc='upper right')
-        axes[3, i].axis("equal")
-        axes[3, i].grid(True, linestyle='--', alpha=0.7)
+        axes[1, i].plot(history[:, 0], history[:, 1], "o-", color="gold", linewidth=2, label="Past")
+        axes[1, i].plot(future[:, 0], future[:, 1], "o-", color="green", linewidth=2, label="Future")
+        axes[1, i].set_title(f"Trajectory {i+1}")
+        axes[1, i].legend(loc='upper right')
+        axes[1, i].axis("equal")
+        axes[1, i].grid(True, linestyle='--', alpha=0.7)
         
     
     fig.tight_layout()
@@ -210,15 +191,18 @@ def get_data_paths(data_dir):
     return {
         'train': os.path.join(data_dir, "train"),
         'val': os.path.join(data_dir, "val"),
-        'test': os.path.join(data_dir, "test_public")
+        'val_real': os.path.join(data_dir, "val_real"),
+        #'test': os.path.join(data_dir, "test_public")
     }
     
 def main():
 
-    data_paths = get_data_paths(data_dir='./')
-
+    data_dir = './'
+    # data_loader = NuplanDataLoader(data_dir=data_dir)  # Uncomment to download the dataset
+    
+    data_paths = get_data_paths(data_dir=data_dir)
     # Visualize samples from the training set
-    dataset = AugmentedNuPlanDataset(data_paths['train'], test=False, include_dynamics=True, augment_prob=0.5)
+    dataset = AugmentedNuPlanDataset(data_paths['val'], test=False, include_dynamics=True, augment_prob=0.5)
     visualize_samples(dataset, num_samples=4)
     
 if __name__ == "__main__":
