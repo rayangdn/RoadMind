@@ -15,7 +15,7 @@ def train(num_epochs=50, lr=1e-4, weight_decay=1e-5, scheduler_factor=0.1, sched
           precision='high', hidden_dim=128, image_embed_dim=256, num_layers_gru=1, dropout_rate=0.3, 
           weight_depth=20, weight_semantic=0.2,
           include_heading=False, include_dynamics=True, use_depth_aux=False, use_semantic_aux=False,
-          batch_size=64, logger_name='roadmind'):
+          batch_size=64, weight_schedule='linear', logger_name='roadmind'):
 
     
     # Set seed for reproducibility
@@ -56,7 +56,8 @@ def train(num_epochs=50, lr=1e-4, weight_decay=1e-5, scheduler_factor=0.1, sched
         lr=lr,
         weight_decay=weight_decay,
         scheduler_factor=scheduler_factor,
-        scheduler_patience=scheduler_patience
+        scheduler_patience=scheduler_patience,
+        weight_schedule=weight_schedule,
     )
     
     # Set up TensorBoard logger and learning rate monitor
@@ -147,8 +148,9 @@ def main():
     weight_semantic = 0.2
     include_heading = False
     include_dynamics = True
-    use_depth_aux = True 
-    use_semantic_aux = True
+    use_depth_aux = False 
+    use_semantic_aux = False
+    weight_schedule='linear'
     
     # Data
     batch_size = 64
@@ -171,6 +173,7 @@ def main():
         use_depth_aux=use_depth_aux,
         use_semantic_aux=use_semantic_aux,
         batch_size=batch_size,
+        weight_schedule=weight_schedule,
         logger_name='roadmind'
     )
     

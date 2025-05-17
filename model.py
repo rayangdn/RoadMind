@@ -8,10 +8,9 @@ from torch.optim.lr_scheduler import ReduceLROnPlateau
 import numpy as np
 
 def compute_ade_fde(pred_trajs, future, include_heading=False):    
-    # Compute the L2 distance between predicted and ground truth trajectories
-    if not include_heading:
-        pred_trajs = pred_trajs[:, :, :2]
-        future = future[:, :, :2]
+
+    pred_trajs = pred_trajs[:, :, :2]
+    future = future[:, :, :2]
         
     ade = torch.mean(torch.norm(pred_trajs - future, dim=2))
     fde = torch.mean(torch.norm(pred_trajs[:, -1] - future[:, -1], dim=1))
@@ -19,7 +18,7 @@ def compute_ade_fde(pred_trajs, future, include_heading=False):
     return ade.item(), fde.item()
 
 # More weights for the last points
-def weighted_mse_loss(prediction, target, weight_schedule='linear', max_weight=5000.0, eps=1e-6):
+def weighted_mse_loss(prediction, target, weight_schedule='linear', max_weight=5000.0,):
     batch_size, seq_len, dims = prediction.shape
     
     # Generate weights based on schedule
@@ -203,7 +202,8 @@ class TrajectoryDecoder(nn.Module):
 class RoadMind(nn.Module):
     def __init__(self, input_hist_dim=3, hidden_dim=128, image_embed_dim=256, num_layers_gru=1,
                  output_seq_len=60, dropout_rate=0.3, weight_depth=10, weight_semantic=0.2, 
-                 num_semantic_classes=15, include_heading=False, use_depth_aux=False, use_semantic_aux=False, ):
+                 num_semantic_classes=15, include_heading=False, use_depth_aux=False, use_semantic_aux=False,
+                 weight_schedule='linear'):
         super(RoadMind, self).__init__()        
         
         self.input_hist_dim = input_hist_dim
@@ -220,6 +220,7 @@ class RoadMind(nn.Module):
         self.use_depth_aux = use_depth_aux
         self.use_semantic_aux = use_semantic_aux
         self.output_futur_dim = 2 if not include_heading else 3
+        self.weight_schedule = weight_schedule
         
         # Image encoder
         self.image_encoder = ImageEncoder(
@@ -295,8 +296,7 @@ class RoadMind(nn.Module):
         return results
          
     def compute_loss(self, traj_pred, future, depth_pred=None, depth_gt=None, 
-                semantic_pred=None, semantic_gt=None, 
-                weight_schedule='linear', max_weight=5000.0):
+                semantic_pred=None, semantic_gt=None, max_weight=5000.0):
     
         if not self.include_heading:
             future = future[:, :, :2]
@@ -305,7 +305,7 @@ class RoadMind(nn.Module):
         traj_loss = weighted_mse_loss(
             traj_pred, 
             future, 
-            weight_schedule=weight_schedule,
+            weight_schedule=self.weight_schedule,
             max_weight=max_weight
         )
         
@@ -333,7 +333,7 @@ class LightningRoadMind(pl.LightningModule):
                  include_heading=False, include_dynamics=False,
                  use_depth_aux=False, use_semantic_aux=False,
                  lr=1e-4, weight_decay=1e-5, scheduler_factor=0.5, 
-                 scheduler_patience=5):
+                 scheduler_patience=5, weight_schedule='linear'):
         
         super(LightningRoadMind, self).__init__()
             
@@ -349,6 +349,7 @@ class LightningRoadMind(pl.LightningModule):
             include_heading=include_heading ,
             use_depth_aux=use_depth_aux,
             use_semantic_aux=use_semantic_aux,
+            weight_schedule=weight_schedule
         )
         
         # Store the flags for use in training/validation steps
@@ -366,7 +367,7 @@ class LightningRoadMind(pl.LightningModule):
         print("\n==================MODEL PARAMETERS==================")
         print(f"Hidden dim: {hidden_dim}, Image embed dim: {image_embed_dim}, Num Layers GRU: {num_layers_gru}")
         print(f"Dropout rate: {dropout_rate}, Include heading: {include_heading}, Include dynamics: {include_dynamics}")
-        print(f"Use depth auxiliary: {use_depth_aux}, Use semantic auxiliary: {use_semantic_aux}")
+        print(f"Use depth auxiliary: {use_depth_aux}, Use semantic auxiliary: {use_semantic_aux}, Weight schedule: {weight_schedule}")
         print("=======================================================\n")
         
         print("==================OPTIMIZATION PARAMETERS==================")
