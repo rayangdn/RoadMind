@@ -62,16 +62,16 @@ On the validation dataset, our enhanced model achieved:
 project/
 ├── data/
 |   └── data_loader.py         # Dataset and data loading utilities         
-├── checkpoints/               # Model checkpoints directory
+├── checkpoints/               # Model checkpoints directory (will be created)
 │   └── roadmind/              # RoadMind model checkpoints
-├── logs/                      # Training logs and curves
+├── logs/                      # Training logs and curves (will be created)
 │   └── roadmind/              # RoadMind training logs
 ├── get_hype.py                # Hyperparameter optimization with Optuna
 ├── infer.py                   # Evaluation script for inference
 ├── model.py                   # Model architecture definition
 ├── train.py                   # Training loop implementation
 ├── utils.py                   # Utility functions
-├── submission/                # Submission files
+├── submission/                # Submission files (will be created)
 ```
 
 ## Training
