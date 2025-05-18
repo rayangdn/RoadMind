@@ -2,40 +2,36 @@
 
 **Authors:** Rayan Gauderon & Mouhamad Rawas  
 **Course:** Deep Learning for Autonomous Vehicles   
-**Date:** May 16, 2025
+**Date:** May 23, 2025
 
-## Overview — Milestone 2
+## Overview — Milestone 3
 
 This repository contains the implementation of an end-to-end trajectory planner for autonomous vehicles as part of the DLAV course project. The goal is to predict future trajectories of a self-driving car based on sensor data.
 
-For Milestone 2, we've enhanced our model with perception-aware planning through auxiliary tasks:
-- Camera RGB image
-- Vehicle's motion history
-- **New: Depth estimation as auxiliary task**
-- **New: Semantic segmentation as auxiliary task**
+For Milestone 3, we've enhanced our model to address the challenging sim-to-real gap, enabling more robust performance in real-world scenarios.
+
+### Key Challenges in Milestone 3:
+- No depth or semantic labels available in real-world data
+- Domain shift between simulated and real-world environments
+- Greater visual complexity and environmental variability
 
 ## Model & Training Method
 
 ### Architecture Overview
 
-Our enhanced model, **RoadMind**, has been upgraded with additional components:
+Our model, **RoadMind**, consits of several key components:
 
-1. **Image Encoder**: We now use a pretrained EfficientNet-B0 backbone to extract visual features, which provides a stronger foundation for our perception tasks.
+1. **Image Encoder**: Apretrained EfficientNet-B0 backbone to extract visual features, which provides strong foundation for our perception tasks.
 
-2. **Trajectory Encoder**: A GRU network (now with 2 layers) that processes the vehicle's historical trajectory data, including optional dynamics features.
+2. **Trajectory Encoder**: A GRU network with 2 layers that processes the vehicle's historical trajectory data, including optional dynamics features.
 
 3. **Feature Fusion Module**: Combines visual features and trajectory information with enhanced connectivity.
 
 4. **Trajectory Decoder**: Generates the predicted future trajectory points.
 
-5. **New: Depth Decoder**: An auxiliary decoder that predicts depth information from image features, helping the model understand the 3D structure of the scene.
-
-6. **New: Semantic Decoder**: An auxiliary decoder that performs semantic segmentation with 15 classes, providing the model with an understanding of road elements.
 
 The architecture incorporates several advanced techniques:
-- Multi-task learning with weighted loss functions
-- Auxiliary tasks for improved feature learning
-- **New: Dynamics features** (optional) including velocity and acceleration
+- **Dynamics features** (optional) including velocity and acceleration
 - Dropout for regularization (optimized rate of 0.4)
 
 ### Training Configuration
@@ -46,15 +42,12 @@ The architecture incorporates several advanced techniques:
 - **Scheduler**: ReduceLROnPlateau with patience=5, factor=0.7
 - **Hyperparameters**: Optimized with Optuna (10 trials)
 - **Max Epochs**: 100
-- **Auxiliary task weights**:
-  - Depth weight: 10
-  - Semantic weight: 0.2
 
 ### Results
 
-On the validation dataset, our enhanced model achieved:
-- **ADE (Average Displacement Error)**: 1.6
-- **FDE (Final Displacement Error)**: 4.6
+On the real-world validation dataset, our model achieved:
+- **ADE (Average Displacement Error)**: 1.5
+- **FDE (Final Displacement Error)**: 4.3
 
 ## Project Structure
 
@@ -72,35 +65,7 @@ project/
 ├── train.py                   # Training loop implementation
 ├── utils.py                   # Utility functions
 ├── submission/                # Submission files
-└── requirements.txt           # Python dependencies
 ```
-
-## Setup
-
-1. Create a new conda environment with Python 3.11:
-   ```bash
-   conda create -n dlav_env python=3.11
-   conda activate dlav_env
-   ```
-
-2. Install required packages:
-   ```bash
-   pip install -r requirements.txt
-   ```
-
-3. Make sure to have the following dependencies:
-   ```
-   torch>=1.10.0
-   torchvision>=0.11.0
-   pytorch-lightning>=1.5.0
-   matplotlib>=3.5.0
-   numpy>=1.20.0
-   pandas>=1.3.0
-   gdown>=4.4.0
-   optuna>=2.10.0
-   pillow>=8.3.0
-   tensorboard>=2.7.0
-   ```
 
 ## Training
 
@@ -149,7 +114,5 @@ Training curves and example predictions are automatically saved during training:
 - **Example Predictions**: Visualizations include:
   - Camera view
   - Trajectory prediction (history, ground truth, and prediction)
-  - Depth map (ground truth and prediction)
-  - Semantic segmentation (ground truth and prediction)
 
-These visualizations show the model's performance across all tasks, providing insight into how the auxiliary tasks contribute to improved trajectory prediction. TensorBoard allows you to monitor metrics like loss, ADE, FDE, and learning rate in real-time during training.
+These visualizations show the model's performance and sample predictions, helping to understand how well the model is learning to predict future trajectories.TensorBoard allows you to monitor metrics like loss, ADE, FDE, and learning rate in real-time during training.
