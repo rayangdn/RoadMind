@@ -1,9 +1,0 @@
-# Requirements 
-torch>=2.0.0
-torchvision>=0.15.0
-numpy>=1.23.5
-matplotlib>=3.7.1
-pandas>=2.0.0
-scikit-learn>=1.2.2
-gdown>=4.7.1
-tqdm>=4.65.0
