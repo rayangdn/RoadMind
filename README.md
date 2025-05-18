@@ -59,8 +59,8 @@ This performance places our model well within the expected range for Milestone 1
 ```
 project/
 ├── data/                      # Data directory (will be created)
-├── model/                     # Model checkpoints directory
-├── outputs/
+├── model/                     # Model checkpoints directory (will be created)
+├── outputs/                   # (will be created)
 │   ├── checkpoints/           # Training checkpoints
 │   ├── examples/              # Visualization examples
 │   └── logs/                  # Training logs and curves
