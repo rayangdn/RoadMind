@@ -43,7 +43,7 @@ The architecture incorporates several advanced techniques:
 - **Weight Decay**: 1e-4
 - **Scheduler**: ReduceLROnPlateau with patience=5, factor=0.5
 - **Early Stopping**: Patience of 20 epochs
-- **Max Epochs**: 150
+- **Max Epochs**: 200
 - **Data Normalization**: Mean=[0.587, 0.605, 0.590], Std=[0.132, 0.125, 0.163]
 
 ### Results
