@@ -71,7 +71,7 @@ project/
 │   ├── model.py               # Model architecture definition
 │   ├── train.py               # Training loop implementation
 │   └── utils.py               # Utility functions
-├── submission/                # Submission files
+├── submission/                # Submission files (will be created)
 ```
 ## Training
 
