@@ -47,17 +47,17 @@ class NuplanDataLoader:
             print(f"{split} data downloaded and extracted successfully")
 
 class AugmentedNuPlanDataset(Dataset):
-    def __init__(self, data_path, test=False, include_dynamics=False, augment_prob=0.5):
-        self.data_path = data_path
+    def __init__(self, data_files, test=False, include_dynamics=False, augment_prob=0.5):
         self.test = test
         self.include_dynamics = include_dynamics
         self.augment_prob = augment_prob if not test else 0.0
+        self.samples = data_files
         
-        if test:
-            self.samples = [os.path.join(data_path, fn) for fn in sorted([f for f in os.listdir(data_path) if f.endswith(".pkl")], 
-                                                                          key=lambda fn: int(os.path.splitext(fn)[0]))]
-        else:
-            self.samples = [os.path.join(data_path, f) for f in os.listdir(data_path) if f.endswith('.pkl')]
+        # if test:
+        #     self.samples = [os.path.join(data_path, fn) for fn in sorted([f for f in os.listdir(data_path) if f.endswith(".pkl")], 
+        #                                                                   key=lambda fn: int(os.path.splitext(fn)[0]))]
+        # else:
+        #     self.samples = [os.path.join(data_path, f) for f in os.listdir(data_path) if f.endswith('.pkl')]
         
         # Define normalization
         self.normalize = transforms.Normalize(
@@ -198,11 +198,11 @@ def get_data_paths(data_dir):
 def main():
 
     data_dir = './'
-    # data_loader = NuplanDataLoader(data_dir=data_dir)  # Uncomment to download the dataset
+    #data_loader = NuplanDataLoader(data_dir=data_dir)  # Uncomment to download the dataset
     
     data_paths = get_data_paths(data_dir=data_dir)
     # Visualize samples from the training set
-    dataset = AugmentedNuPlanDataset(data_paths['val'], test=False, include_dynamics=True, augment_prob=0.5)
+    dataset = AugmentedNuPlanDataset(data_paths['val_real'], test=False, include_dynamics=True, augment_prob=0.5)
     visualize_samples(dataset, num_samples=4)
     
 if __name__ == "__main__":

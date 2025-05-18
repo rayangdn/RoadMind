@@ -31,14 +31,33 @@ def train(num_epochs=50, lr=1e-4, weight_decay=1e-5, scheduler_factor=0.1, sched
     
     # Create datasets and data loaders
     data_paths = get_data_paths(data_dir)
-    train_dataset = AugmentedNuPlanDataset(data_paths['train'], test=False, include_dynamics=include_dynamics, augment_prob=0.5)
-    val_dataset = AugmentedNuPlanDataset(data_paths['val_real'], test=False, include_dynamics=include_dynamics, augment_prob=0.0) # No augmentation for validation
+    train_files = [os.path.join(data_paths['train'], f) for f in os.listdir(data_paths['train']) if f.endswith('.pkl')]
+    val_real_files = [os.path.join(data_paths['val_real'], f) for f in os.listdir(data_paths['val_real']) if f.endswith('.pkl')]
+    
+    # Create mixed training set and validation set
+    train_files_mixed = train_files + val_real_files[:500]
+    val_files = val_real_files[500:]
+    
+
+    train_dataset = AugmentedNuPlanDataset(
+        data_files=train_files_mixed, 
+        test=False, 
+        include_dynamics=include_dynamics, 
+        augment_prob=0.5
+    )
+    val_dataset = AugmentedNuPlanDataset(
+        data_files=val_files, 
+        test=False, 
+        include_dynamics=include_dynamics, 
+        augment_prob=0.0    # No augmentation for validation
+    ) 
+    
     train_dataloader = DataLoader(train_dataset, batch_size=batch_size, num_workers=8, shuffle=True, pin_memory=True)
     val_dataloader = DataLoader(val_dataset, batch_size=32, shuffle=False, num_workers=8, pin_memory=True)
     
     # Visualize some samples
-    # visualize_samples(train_dataset, num_samples=4) 
-    # visualize_samples(val_dataset, num_samples=4)
+    visualize_samples(train_dataset, num_samples=4) 
+    visualize_samples(val_dataset, num_samples=4)
     
     model = LightningRoadMind(
         hidden_dim=hidden_dim,
