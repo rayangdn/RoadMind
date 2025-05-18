@@ -72,34 +72,7 @@ project/
 │   ├── train.py               # Training loop implementation
 │   └── utils.py               # Utility functions
 ├── submission/                # Submission files
-└── requirements.txt           # Python dependencies
 ```
-
-## Setup
-
-1. Create a new conda environment with Python 3.11:
-   ```bash
-   conda create -n dlav_env python=3.11
-   conda activate dlav_env
-   ```
-
-2. Install required packages:
-   ```bash
-   pip install -r requirements.txt
-   ```
-
-3. Make sure to have the following dependencies:
-   ```
-   torch>=2.0.0
-   torchvision>=0.15.0
-   numpy>=1.23.5
-   matplotlib>=3.7.1
-   pandas>=2.0.0
-   scikit-learn>=1.2.2
-   gdown>=4.7.1
-   tqdm>=4.65.0
-   ```
-
 ## Training
 
 To train the model from scratch:
