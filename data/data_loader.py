@@ -14,7 +14,6 @@ class NuplanDataLoader:
         self.data_dir = data_dir
         self.file_urls = {
             'train': "https://drive.google.com/uc?id=1YkGwaxBKNiYL2nq--cB6WMmYGzRmRKVr",
-            'val': "https://drive.google.com/uc?id=1wtmT_vH9mMUNOwrNOMFP6WFw6e8rbOdu",
             'val_real': "https://drive.google.com/uc?id=17DREGym_-v23f_qbkMHr7vJstbuTt0if",
            # 'test': "https://drive.google.com/uc?id=1G9xGE7s-Ikvvc2-LZTUyuzhWAlNdLTLV"
         }
@@ -190,9 +189,8 @@ def visualize_samples(dataset, num_samples=4):
 def get_data_paths(data_dir):
     return {
         'train': os.path.join(data_dir, "train"),
-        'val': os.path.join(data_dir, "val"),
-        'val_real': os.path.join(data_dir, "val_real"),
-        #'test': os.path.join(data_dir, "test_public")
+        'val': os.path.join(data_dir, "val_real"),
+        'test': os.path.join(data_dir, "test_public_real")
     }
     
 def main():

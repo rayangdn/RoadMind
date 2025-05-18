@@ -32,7 +32,7 @@ def train(num_epochs=50, lr=1e-4, weight_decay=1e-5, scheduler_factor=0.1, sched
     # Create datasets and data loaders
     data_paths = get_data_paths(data_dir)
     train_files = [os.path.join(data_paths['train'], f) for f in os.listdir(data_paths['train']) if f.endswith('.pkl')]
-    val_real_files = [os.path.join(data_paths['val_real'], f) for f in os.listdir(data_paths['val_real']) if f.endswith('.pkl')]
+    val_real_files = [os.path.join(data_paths['val'], f) for f in os.listdir(data_paths['val']) if f.endswith('.pkl')]
     
     # Create mixed training set and validation set
     train_files_mixed = train_files + val_real_files[:500]
@@ -140,7 +140,7 @@ def main():
     # <------ Hyperparameters ---->
     
     # Trainer
-    num_epochs = 150
+    num_epochs = 100
     
     # Optimizer
     lr = 0.0008

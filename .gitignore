@@ -178,6 +178,7 @@ cython_debug/
 **/data/train/
 **/data/val/
 **/data/val_real/
+**/data/test_public_real/
 **/data/__pycache__/
 
 # Output folders
