@@ -46,7 +46,7 @@ The architecture incorporates several advanced techniques:
 ### Results
 
 On the real-world validation dataset, our model achieved:
-- **ADE (Average Displacement Error)**: 1.5
+- **ADE (Average Displacement Error)**: 1.4
 - **FDE (Final Displacement Error)**: 4.3
 
 ## Project Structure
