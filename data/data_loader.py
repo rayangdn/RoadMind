@@ -15,7 +15,7 @@ class NuplanDataLoader:
         self.file_urls = {
             'train': "https://drive.google.com/uc?id=1YkGwaxBKNiYL2nq--cB6WMmYGzRmRKVr",
             'val_real': "https://drive.google.com/uc?id=17DREGym_-v23f_qbkMHr7vJstbuTt0if",
-           # 'test': "https://drive.google.com/uc?id=1G9xGE7s-Ikvvc2-LZTUyuzhWAlNdLTLV"
+            'test_real_public': "https://drive.google.com/uc?id=1_l6cui0pCJ_caixN0uTkkUOfu6ICO8u5"
         }
         
         # Download data if requested and not already present
@@ -190,7 +190,7 @@ def get_data_paths(data_dir):
     return {
         'train': os.path.join(data_dir, "train"),
         'val': os.path.join(data_dir, "val_real"),
-        'test': os.path.join(data_dir, "test_public_real")
+        'test': os.path.join(data_dir, "test_real_public")
     }
     
 def main():
@@ -199,8 +199,13 @@ def main():
     #data_loader = NuplanDataLoader(data_dir=data_dir)  # Uncomment to download the dataset
     
     data_paths = get_data_paths(data_dir=data_dir)
+    
+    data_paths = get_data_paths(data_dir)
+    train_files = [os.path.join(data_paths['train'], f) for f in os.listdir(data_paths['train']) if f.endswith('.pkl')]
+    val_real_files = [os.path.join(data_paths['val'], f) for f in os.listdir(data_paths['val']) if f.endswith('.pkl')]
+
     # Visualize samples from the training set
-    dataset = AugmentedNuPlanDataset(data_paths['val_real'], test=False, include_dynamics=True, augment_prob=0.5)
+    dataset = AugmentedNuPlanDataset(train_files, test=False, include_dynamics=True, augment_prob=0.5)
     visualize_samples(dataset, num_samples=4)
     
 if __name__ == "__main__":

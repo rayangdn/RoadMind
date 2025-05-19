@@ -85,7 +85,7 @@ def main():
     test_loader = DataLoader(test_dataset, batch_size=1, shuffle=False, num_workers=4, pin_memory=True)
     
     # Load model
-    model_path = "model/milestone3_roadmind_1.58.ckpt"  
+    model_path = "milestone3_roadmind_1.58.ckpt"  
     model = LightningRoadMind.load_from_checkpoint(model_path).to(device)
     
     # Evaluate model
