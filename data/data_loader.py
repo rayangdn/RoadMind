@@ -198,14 +198,12 @@ def main():
     data_dir = './'
     #data_loader = NuplanDataLoader(data_dir=data_dir)  # Uncomment to download the dataset
     
-    data_paths = get_data_paths(data_dir=data_dir)
-    
     data_paths = get_data_paths(data_dir)
     train_files = [os.path.join(data_paths['train'], f) for f in os.listdir(data_paths['train']) if f.endswith('.pkl')]
     val_real_files = [os.path.join(data_paths['val'], f) for f in os.listdir(data_paths['val']) if f.endswith('.pkl')]
 
     # Visualize samples from the training set
-    dataset = AugmentedNuPlanDataset(train_files, test=False, include_dynamics=True, augment_prob=0.5)
+    dataset = AugmentedNuPlanDataset(val_real_files, test=False, include_dynamics=True, augment_prob=0.0)
     visualize_samples(dataset, num_samples=4)
     
 if __name__ == "__main__":

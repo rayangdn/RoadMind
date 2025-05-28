@@ -175,6 +175,7 @@ cython_debug/
 
 # Data folders
 **/data/test_public/
+**/data/test_real_public/
 **/data/train/
 **/data/val/
 **/data/val_real/
