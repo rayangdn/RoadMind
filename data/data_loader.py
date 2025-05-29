@@ -215,7 +215,10 @@ def get_data_paths(data_dir):
     
 def main():
 
-    data_paths = get_data_paths(data_dir='./')
+    # Initialize data loader
+    data_dir = "."
+    NuplanDataLoader(data_dir=data_dir)
+    data_paths = get_data_paths(data_dir=data_dir)
 
     # Visualize samples from the training set
     dataset = AugmentedNuPlanDataset(data_paths['train'], test=False, include_dynamics=True, augment_prob=0.5)
