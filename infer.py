@@ -70,12 +70,10 @@ def main():
     # Download and extract dataset
     #data_loader = NuplanDataLoader(data_dir=data_dir)
     data_paths = get_data_paths(data_dir)
-    test_files = [os.path.join(data_paths['test'], fn) for fn in sorted([f for f in os.listdir(data_paths['test']) if f.endswith(".pkl")], 
-                                                                        key=lambda fn: int(os.path.splitext(fn)[0]))]
     
     # Create dataset
     test_dataset = AugmentedNuPlanDataset(
-        data_files=test_files,
+        data_paths['test'], 
         test=True,
         include_dynamics=True,
         augment_prob=0.0
@@ -85,8 +83,8 @@ def main():
     test_loader = DataLoader(test_dataset, batch_size=1, shuffle=False, num_workers=4, pin_memory=True)
     
     # Load model
-    model_path = "milestone3_roadmind_1.58.ckpt"  
-    model = LightningRoadMind.load_from_checkpoint(model_path).to(device)
+    checkpoint_path = "model/roadmind_1.60.ckpt"  
+    model = LightningRoadMind.load_from_checkpoint(checkpoint_path).to(device)
     
     # Evaluate model
     evaluate(model, test_loader, submission_dir, device)
